@@ -237,12 +237,12 @@ void configScene(){
     texFlashlight.shininess = 32.0;
 
     // --- LUCES ---
-    lightG.ambient = glm::vec3(0.05, 0.05, 0.08);
+    lightG.ambient = glm::vec3(0.1, 0.1, 0.12);
 
     lightD[0].direction = glm::vec3(-1.0, -1.0, 0.0);
-    lightD[0].ambient   = glm::vec3( 0.01, 0.01, 0.01);
-    lightD[0].diffuse   = glm::vec3( 0.1, 0.1, 0.15);
-    lightD[0].specular  = glm::vec3( 0.05, 0.05, 0.05);
+    lightD[0].ambient   = glm::vec3( 0.03, 0.03, 0.03);
+    lightD[0].diffuse   = glm::vec3( 0.2, 0.2, 0.25);
+    lightD[0].specular  = glm::vec3( 0.08, 0.08, 0.08);
 
     lightP[0].position = glm::vec3(40.0, 10.0, 40.0);
     lightP[0].ambient  = glm::vec3(0.01, 0.01, 0.01);
@@ -351,7 +351,7 @@ glm::mat4 calculateFlashlightTransform(glm::vec3 &flashlightTipOut) {
     
     // Offset para brazo derecho - esquina inferior derecha con balanceo
     glm::vec3 flashlightPos = cameraPos 
-        + cameraFront * 0.35f           // Adelante
+        + cameraFront * 0.25f           // Adelante (reducido para que no atraviese paredes)
         + rightVector * (0.1f + swayOffsetX)  // A la derecha + balanceo horizontal
         - upVector * (0.10f - swayOffsetY);   // Abajo + balanceo vertical
     
