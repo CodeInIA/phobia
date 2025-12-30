@@ -23,6 +23,9 @@ void funScroll(GLFWwindow* window, double xoffset, double yoffset);
 void funCursorPos(GLFWwindow* window, double xpos, double ypos);
 void processInput(GLFWwindow *window, float deltaTime);
 bool checkCollision(glm::vec3 newPos);
+glm::mat4 calculateFlashlightTransform(glm::vec3 &flashlightTipOut);
+void updateFlashlightLight(const glm::vec3 &flashlightTip);
+void renderFlashlight(glm::mat4 P, glm::mat4 V);
 
 // --- VARIABLES GLOBALES ---
 Shaders shaders;
@@ -44,6 +47,7 @@ std::vector<std::string> mapLevel;
 // MODELOS
 Model cubeModel;
 Model planeModel;
+Model flashlightModel;
 
 // TEXTURAS (OBJETOS) - SEPARADAS PARA PARED Y SUELO
 Texture imgWallDiffuse;
@@ -61,10 +65,16 @@ Texture imgCeilingSpecular;
 Texture imgCeilingNormal;
 Texture imgCeilingEmissive;
 
+Texture imgFlashlightDiffuse;
+Texture imgFlashlightSpecular;
+Texture imgFlashlightNormal;
+Texture imgFlashlightEmissive;
+
 // TEXTURAS (STRUCTS SHADER)
 Textures texWall;
 Textures texFloor;
 Textures texCeiling;
+Textures texFlashlight;
 
 // LUCES
 #define NLD 1
@@ -81,6 +91,8 @@ int h = 1000;
 
 // Control de tiempo (para velocidad constante)
 float lastFrame = 0.0f;
+float walkTime = 0.0f;
+bool isWalking = false;
 
 // --- MAIN ---
 int main() {
@@ -170,6 +182,7 @@ void configScene(){
 
     cubeModel.initModel("resources/models/cube.obj");
     planeModel.initModel("resources/models/plane.obj");
+    flashlightModel.initModel("resources/models/flashlight.obj");
 
     // --- CARGA DE TEXTURAS DE PARED ---
     imgWallDiffuse.initTexture("resources/textures/wall_diffuse.png");
@@ -188,6 +201,12 @@ void configScene(){
     imgCeilingSpecular.initTexture("resources/textures/wall_specular.jpg");
     imgCeilingNormal.initTexture("resources/textures/wall_normal.jpg");
     imgCeilingEmissive.initTexture("resources/textures/wall_emissive.jpg");
+
+    // --- CARGA DE TEXTURAS DE LINTERNA
+    imgFlashlightDiffuse.initTexture("resources/textures/flashlight/DefaultMaterial.png");
+    imgFlashlightSpecular.initTexture("resources/textures/flashlight/metalnessMap1.png");
+    imgFlashlightNormal.initTexture("resources/textures/flashlight/normalMap1.png");
+    imgFlashlightEmissive.initTexture("resources/textures/flashlight/emissiveMap1.png");
 
     // Configurar PARED
     texWall.diffuse   = imgWallDiffuse.getTexture();
@@ -210,6 +229,13 @@ void configScene(){
     texCeiling.normal    = imgCeilingNormal.getTexture();
     texCeiling.shininess = 64.0;
 
+    // Configurar LINTERNA
+    texFlashlight.diffuse   = imgFlashlightDiffuse.getTexture();
+    texFlashlight.specular  = imgFlashlightSpecular.getTexture();
+    texFlashlight.emissive  = imgFlashlightEmissive.getTexture();
+    texFlashlight.normal    = imgFlashlightNormal.getTexture();
+    texFlashlight.shininess = 32.0;
+
     // --- LUCES ---
     lightG.ambient = glm::vec3(0.05, 0.05, 0.08);
 
@@ -227,11 +253,11 @@ void configScene(){
     lightF[0].position    = glm::vec3(0.0, 0.0, 0.0);
     lightF[0].direction   = glm::vec3(0.0, 0.0, -1.0);
     lightF[0].ambient     = glm::vec3(0.0, 0.0, 0.0);
-    lightF[0].diffuse     = glm::vec3(0.4, 0.35, 0.3);
-    lightF[0].specular    = glm::vec3(0.1, 0.1, 0.1);
+    lightF[0].diffuse     = glm::vec3(0.8, 0.7, 0.6);
+    lightF[0].specular    = glm::vec3(0.3, 0.3, 0.3);
     lightF[0].innerCutOff = 10.0;
     lightF[0].outerCutOff = 15.0;
-    lightF[0].c0 = 1.0; lightF[0].c1 = 0.14; lightF[0].c2 = 0.07;
+    lightF[0].c0 = 1.0; lightF[0].c1 = 0.09; lightF[0].c2 = 0.032;
     
     lightF[1] = lightF[0]; 
 
@@ -302,6 +328,62 @@ void renderScene(){
             }
         }
     }
+
+    // --- RENDERIZAR LINTERNA EN PRIMERA PERSONA ---
+    renderFlashlight(P, V);
+}
+
+// --- FUNCIONES DE LINTERNA ---
+glm::mat4 calculateFlashlightTransform(glm::vec3 &flashlightTipOut) {
+    // Calcular vectores de orientación
+    glm::vec3 rightVector = glm::normalize(glm::cross(cameraFront, cameraUp));
+    glm::vec3 upVector = glm::normalize(glm::cross(rightVector, cameraFront));
+    
+    // Efecto de balanceo al caminar
+    float swayOffsetX = 0.0f;
+    float swayOffsetY = 0.0f;
+    if (isWalking) {
+        float swaySpeed = 8.0f;
+        float swayAmount = 0.015f;
+        swayOffsetX = sin(walkTime * swaySpeed) * swayAmount;
+        swayOffsetY = abs(cos(walkTime * swaySpeed * 0.5f)) * swayAmount * 0.5f;
+    }
+    
+    // Offset para brazo derecho - esquina inferior derecha con balanceo
+    glm::vec3 flashlightPos = cameraPos 
+        + cameraFront * 0.35f           // Adelante
+        + rightVector * (0.1f + swayOffsetX)  // A la derecha + balanceo horizontal
+        - upVector * (0.10f - swayOffsetY);   // Abajo + balanceo vertical
+    
+    // Crear matriz de orientación usando los vectores de la cámara
+    glm::mat4 MFlashlight(1.0f);
+    MFlashlight[0] = glm::vec4(cameraFront, 0.0f);   // X axis -> hacia adelante
+    MFlashlight[1] = glm::vec4(upVector, 0.0f);      // Y axis -> arriba
+    MFlashlight[2] = glm::vec4(rightVector, 0.0f);   // Z axis -> derecha
+    MFlashlight[3] = glm::vec4(flashlightPos, 1.0f); // Posición
+    
+    // Escalar
+    MFlashlight = glm::scale(MFlashlight, glm::vec3(0.15f, 0.15f, 0.15f));
+    
+    // Calcular posición de la punta de la linterna para la luz
+    float flashlightLength = 0.15f; // 1.0 * escala
+    flashlightTipOut = flashlightPos + cameraFront * flashlightLength;
+    
+    return MFlashlight;
+}
+
+void updateFlashlightLight(const glm::vec3 &flashlightTip) {
+    lightF[0].position = flashlightTip;
+    lightF[0].direction = cameraFront;
+}
+
+void renderFlashlight(glm::mat4 P, glm::mat4 V) {
+    glm::vec3 flashlightTip;
+    glm::mat4 MFlashlight = calculateFlashlightTransform(flashlightTip);
+    
+    drawObjectTex(flashlightModel, texFlashlight, P, V, MFlashlight);
+    
+    updateFlashlightLight(flashlightTip);
 }
 
 // --- COLISIONES ---
@@ -343,11 +425,15 @@ void processInput(GLFWwindow *window, float deltaTime) {
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) { nextPos += cameraSpeed * rightXZ; moved = true; }
     
     if (moved) {
+        isWalking = true;
+        walkTime += deltaTime;
         bool collX = checkCollision(glm::vec3(nextPos.x, cameraPos.y, cameraPos.z));
         bool collZ = checkCollision(glm::vec3(cameraPos.x, cameraPos.y, nextPos.z));
         
         if (!collX) cameraPos.x = nextPos.x;
         if (!collZ) cameraPos.z = nextPos.z;
+    } else {
+        isWalking = false;
     }
     cameraPos.y = 2.0f; 
 }
