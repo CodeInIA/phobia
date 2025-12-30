@@ -1,6 +1,7 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
+#include <fstream>
 #include <vector>
 #include <string>
 #include "Shaders.h"
@@ -10,6 +11,7 @@
 using namespace std;
 
 // --- PROTOTIPOS ---
+void loadMap(const std::string& filename);
 void configScene();
 void renderScene();
 void setLights(glm::mat4 P, glm::mat4 V);
@@ -37,26 +39,7 @@ float lastY =  500.0f;
 bool firstMouse = true;
 
 // MAPA
-std::vector<std::string> mapLevel = {
-    "11111111111111111111",
-    "1N000000000000000001",
-    "10111111011111101101",
-    "10100001010000101001",
-    "10101101010110101001",
-    "10101100000110000001",
-    "10000000000000111111",
-    "11111101111110100001",
-    "10000001000000101101",
-    "10111101011110101101",
-    "10100000010010000001",
-    "10101111110011111101",
-    "10000000000000000001",
-    "11111011111111101111",
-    "10000010000000101001",
-    "10111110111110101001",
-    "10000000100000000001",
-    "11111111101111111111"
-};
+std::vector<std::string> mapLevel;
 
 // MODELOS
 Model cubeModel;
@@ -131,10 +114,31 @@ int main() {
     return 0;
 }
 
+void loadMap(const std::string& filename) {
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        std::cerr << "Error: No se pudo abrir el archivo " << filename << std::endl;
+        return;
+    }
+    
+    mapLevel.clear();
+    std::string line;
+    while (std::getline(file, line)) {
+        if (!line.empty()) {
+            mapLevel.push_back(line);
+        }
+    }
+    file.close();
+    
+    std::cout << "Mapa cargado: " << mapLevel.size() << " filas" << std::endl;
+}
+
 void configScene(){
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    loadMap("resources/models/map.cub");
 
     shaders.initShaders("resources/shaders/vshader.glsl","resources/shaders/fshader.glsl");
 
