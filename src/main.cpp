@@ -123,9 +123,22 @@ void loadMap(const std::string& filename) {
     
     mapLevel.clear();
     std::string line;
+    int rowIndex = 0;
+    
     while (std::getline(file, line)) {
         if (!line.empty()) {
+            for (int colIndex = 0; colIndex < line.size(); colIndex++) {
+                if (line[colIndex] == 'N') {
+                    float bSize = 4.0f;
+                    cameraPos.x = colIndex * bSize;
+                    cameraPos.z = rowIndex * bSize;
+                    cameraPos.y = 2.0f;
+                    line[colIndex] = '0';
+                    std::cout << "Posicion inicial: grid(" << colIndex << ", " << rowIndex << ") -> world(" << cameraPos.x << ", " << cameraPos.z << ")" << std::endl;
+                }
+            }
             mapLevel.push_back(line);
+            rowIndex++;
         }
     }
     file.close();
@@ -250,44 +263,49 @@ void renderScene(){
 
 // --- COLISIONES ---
 bool checkCollision(glm::vec3 newPos) {
-    float blockSize = 4.0f; 
-    float offset    = blockSize / 2.0f; 
-    float playerRadius = 0.4f; 
+    float blockSize = 4.0f;
+    float halfBlock = blockSize / 2.0f;
+    float playerRadius = 0.4f;
 
-    float minX = newPos.x - playerRadius;
-    float maxX = newPos.x + playerRadius;
-    float minZ = newPos.z - playerRadius;
-    float maxZ = newPos.z + playerRadius;
-
-    int startGridX = (int)((minX + offset) / blockSize);
-    int endGridX   = (int)((maxX + offset) / blockSize);
-    int startGridZ = (int)((minZ + offset) / blockSize);
-    int endGridZ   = (int)((maxZ + offset) / blockSize);
-
-    for (int z = startGridZ; z <= endGridZ; z++) {
-        for (int x = startGridX; x <= endGridX; x++) {
-            if (z < 0 || z >= mapLevel.size() || x < 0 || x >= mapLevel[z].size()) return true;
-            if (mapLevel[z][x] == '1') return true; 
+    for (int z = 0; z < mapLevel.size(); z++) {
+        for (int x = 0; x < mapLevel[z].size(); x++) {
+            if (mapLevel[z][x] == '1') {
+                float wallCenterX = x * blockSize;
+                float wallCenterZ = z * blockSize;
+                
+                float distX = abs(newPos.x - wallCenterX);
+                float distZ = abs(newPos.z - wallCenterZ);
+                
+                if (distX < halfBlock + playerRadius && distZ < halfBlock + playerRadius) {
+                    return true;
+                }
+            }
         }
     }
     return false;
 }
 
 void processInput(GLFWwindow *window, float deltaTime) {
-    float walkSpeed = 3.5f; // Metros por segundo de velocidad
+    float walkSpeed = 3.5f;
     float cameraSpeed = walkSpeed * deltaTime;
     
     glm::vec3 frontXZ = glm::normalize(glm::vec3(cameraFront.x, 0.0f, cameraFront.z));
     glm::vec3 rightXZ = glm::normalize(glm::cross(cameraFront, cameraUp));
     glm::vec3 nextPos = cameraPos;
 
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) nextPos += cameraSpeed * frontXZ;
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) nextPos -= cameraSpeed * frontXZ;
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) nextPos -= cameraSpeed * rightXZ;
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) nextPos += cameraSpeed * rightXZ;
+    bool moved = false;
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) { nextPos += cameraSpeed * frontXZ; moved = true; }
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) { nextPos -= cameraSpeed * frontXZ; moved = true; }
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) { nextPos -= cameraSpeed * rightXZ; moved = true; }
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) { nextPos += cameraSpeed * rightXZ; moved = true; }
     
-    if (!checkCollision(glm::vec3(nextPos.x, cameraPos.y, cameraPos.z))) cameraPos.x = nextPos.x;
-    if (!checkCollision(glm::vec3(cameraPos.x, cameraPos.y, nextPos.z))) cameraPos.z = nextPos.z;
+    if (moved) {
+        bool collX = checkCollision(glm::vec3(nextPos.x, cameraPos.y, cameraPos.z));
+        bool collZ = checkCollision(glm::vec3(cameraPos.x, cameraPos.y, nextPos.z));
+        
+        if (!collX) cameraPos.x = nextPos.x;
+        if (!collZ) cameraPos.z = nextPos.z;
+    }
     cameraPos.y = 2.0f; 
 }
 
