@@ -19,7 +19,7 @@ void funFramebufferSize(GLFWwindow* window, int width, int height);
 void funKey(GLFWwindow* window, int key , int scancode, int action, int mods);
 void funScroll(GLFWwindow* window, double xoffset, double yoffset);
 void funCursorPos(GLFWwindow* window, double xpos, double ypos);
-void processInput(GLFWwindow *window);
+void processInput(GLFWwindow *window, float deltaTime);
 bool checkCollision(glm::vec3 newPos);
 
 // --- VARIABLES GLOBALES ---
@@ -62,11 +62,14 @@ std::vector<std::string> mapLevel = {
 Model cubeModel;
 Model planeModel;
 
-// TEXTURAS (OBJETOS)
+// TEXTURAS (OBJETOS) - SEPARADAS PARA PARED Y SUELO
 Texture imgWallDiffuse;
 Texture imgWallNormal;
 Texture imgWallSpecular;
-Texture imgNoEmissive; // Usaremos una oscura
+Texture imgWallEmissive;
+
+Texture imgFloorDiffuse;
+Texture imgFloorSpecular;
 
 // TEXTURAS (STRUCTS SHADER)
 Textures texWall;
@@ -84,6 +87,9 @@ Material mluz;
 
 int w = 1000;
 int h = 1000;
+
+// Control de tiempo (para velocidad constante)
+float lastFrame = 0.0f;
 
 // --- MAIN ---
 int main() {
@@ -111,7 +117,11 @@ int main() {
     configScene();
 
     while(!glfwWindowShouldClose(window)){
-        processInput(window);
+        float currentFrame = glfwGetTime();
+        float deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
+
+        processInput(window, deltaTime);
         renderScene();
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -131,51 +141,52 @@ void configScene(){
     cubeModel.initModel("resources/models/cube.obj");
     planeModel.initModel("resources/models/plane.obj");
 
-    // --- CARGA DE TEXTURAS (Tus archivos nuevos) ---
-    imgWallDiffuse.initTexture("resources/textures/wall_diffuse.png");  // Color
-    imgWallNormal.initTexture("resources/textures/wall_normal.jpg");   // Normales
-    imgWallSpecular.initTexture("resources/textures/wall_specular.jpg"); // Especular
-    
-    // Truco: Usamos img1 como "negro" provisional si no tienes imgNoEmissive.png
-    // (Lo ideal es crear un png negro de 1x1 pixel)
-    imgNoEmissive.initTexture("resources/textures/wall_emissive.jpg"); 
+    // --- CARGA DE TEXTURAS DE PARED ---
+    imgWallDiffuse.initTexture("resources/textures/wall_diffuse.png");
+    imgWallNormal.initTexture("resources/textures/wall_normal.jpg");
+    imgWallSpecular.initTexture("resources/textures/wall_specular.jpg");
+    imgWallEmissive.initTexture("resources/textures/wall_emissive.jpg");
+
+    // --- CARGA DE TEXTURAS DE SUELO
+    imgFloorDiffuse.initTexture("resources/textures/wall_diffuse.png");
+    imgFloorSpecular.initTexture("resources/textures/wall_specular.jpg");
 
     // Configurar PARED
     texWall.diffuse   = imgWallDiffuse.getTexture();
     texWall.specular  = imgWallSpecular.getTexture();
-    texWall.emissive  = imgNoEmissive.getTexture(); 
-    texWall.normal    = imgWallNormal.getTexture(); // Activa Normal Map
-    texWall.shininess = 50.0; // Brillo más definido
+    texWall.emissive  = imgWallEmissive.getTexture(); 
+    texWall.normal    = imgWallNormal.getTexture();
+    texWall.shininess = 64.0;
 
-    // Configurar SUELO (Reutilizamos)
-    texFloor.diffuse   = imgWallDiffuse.getTexture();
-    texFloor.specular  = imgWallSpecular.getTexture();
-    texFloor.emissive  = imgNoEmissive.getTexture();
+    // Configurar SUELO
+    texFloor.diffuse   = imgFloorDiffuse.getTexture();
+    texFloor.specular  = imgFloorSpecular.getTexture();
+    texFloor.emissive  = imgWallEmissive.getTexture();
     texFloor.normal    = imgWallNormal.getTexture();
-    texFloor.shininess = 50.0;
+    texFloor.shininess = 64.0;
 
     // --- LUCES ---
-    lightG.ambient = glm::vec3(0.5, 0.5, 0.5);
+    lightG.ambient = glm::vec3(0.05, 0.05, 0.08);
 
     lightD[0].direction = glm::vec3(-1.0, -1.0, 0.0);
-    lightD[0].ambient   = glm::vec3( 0.1, 0.1, 0.1);
-    lightD[0].diffuse   = glm::vec3( 0.7, 0.7, 0.7);
-    lightD[0].specular  = glm::vec3( 0.7, 0.7, 0.7);
+    lightD[0].ambient   = glm::vec3( 0.01, 0.01, 0.01);
+    lightD[0].diffuse   = glm::vec3( 0.1, 0.1, 0.15);
+    lightD[0].specular  = glm::vec3( 0.05, 0.05, 0.05);
 
-    lightP[0].position = glm::vec3(0.0, 3.0, 3.0);
-    lightP[0].ambient  = glm::vec3(0.2, 0.2, 0.2);
-    lightP[0].diffuse  = glm::vec3(0.9, 0.9, 0.9);
-    lightP[0].specular = glm::vec3(0.9, 0.9, 0.9);
-    lightP[0].c0 = 1.00; lightP[0].c1 = 0.22; lightP[0].c2 = 0.20;
+    lightP[0].position = glm::vec3(40.0, 10.0, 40.0);
+    lightP[0].ambient  = glm::vec3(0.01, 0.01, 0.01);
+    lightP[0].diffuse  = glm::vec3(0.15, 0.15, 0.2);  // Muy reducida
+    lightP[0].specular = glm::vec3(0.05, 0.05, 0.05); // Brillos mínimos
+    lightP[0].c0 = 1.00; lightP[0].c1 = 0.05; lightP[0].c2 = 0.01; // Atenuación más rápida
 
     lightF[0].position    = glm::vec3(0.0, 0.0, 0.0);
     lightF[0].direction   = glm::vec3(0.0, 0.0, -1.0);
-    lightF[0].ambient     = glm::vec3(0.2, 0.2, 0.2);
-    lightF[0].diffuse     = glm::vec3(0.9, 0.9, 0.9);
-    lightF[0].specular    = glm::vec3(0.9, 0.9, 0.9);
+    lightF[0].ambient     = glm::vec3(0.0, 0.0, 0.0);
+    lightF[0].diffuse     = glm::vec3(0.4, 0.35, 0.3);
+    lightF[0].specular    = glm::vec3(0.1, 0.1, 0.1);
     lightF[0].innerCutOff = 10.0;
     lightF[0].outerCutOff = 15.0;
-    lightF[0].c0 = 1.0; lightF[0].c1 = 0.09; lightF[0].c2 = 0.032;
+    lightF[0].c0 = 1.0; lightF[0].c1 = 0.14; lightF[0].c2 = 0.07;
     
     lightF[1] = lightF[0]; 
 
@@ -196,12 +207,25 @@ void renderScene(){
     shaders.setVec3("ueye", cameraPos);
     setLights(P, V);
 
-    // SUELO
-    glm::mat4 MSuelo = glm::translate(I, glm::vec3(40.0f, 0.0f, 40.0f)); 
-    MSuelo = glm::scale(MSuelo, glm::vec3(80.0f, 1.0f, 80.0f)); 
-    drawObjectTex(planeModel, texFloor, P, V, MSuelo);
+    // --- DIBUJAR SUELO CON TILES (REJILLA) ---
+    float tileSize = 4.0f;
+    int gridSizeX = 20;
+    int gridSizeZ = 18;
 
-    // LABERINTO
+    float scaleFloor = tileSize / 2.0f; // Dividir por 2 porque plane.obj mide 2x2
+
+    for(int z = 0; z < gridSizeZ; z++) {
+        for(int x = 0; x < gridSizeX; x++) {
+            glm::vec3 posFloor(x * tileSize, 0.0f, z * tileSize);
+            
+            glm::mat4 MFloor = glm::translate(I, posFloor);
+            MFloor = glm::scale(MFloor, glm::vec3(scaleFloor, 1.0f, scaleFloor));
+            
+            drawObjectTex(planeModel, texFloor, P, V, MFloor);
+        }
+    }
+
+    // --- DIBUJAR PAREDES ---
     float bSize = 4.0f; 
     float bH    = 5.0f; 
     float scX = bSize / 2.0f;
@@ -220,7 +244,7 @@ void renderScene(){
     }
 }
 
-// --- COLISIONES MEJORADAS (Bounding Box) ---
+// --- COLISIONES ---
 bool checkCollision(glm::vec3 newPos) {
     float blockSize = 4.0f; 
     float offset    = blockSize / 2.0f; 
@@ -245,8 +269,10 @@ bool checkCollision(glm::vec3 newPos) {
     return false;
 }
 
-void processInput(GLFWwindow *window) {
-    float cameraSpeed = 0.1f; 
+void processInput(GLFWwindow *window, float deltaTime) {
+    float walkSpeed = 3.5f; // Metros por segundo de velocidad
+    float cameraSpeed = walkSpeed * deltaTime;
+    
     glm::vec3 frontXZ = glm::normalize(glm::vec3(cameraFront.x, 0.0f, cameraFront.z));
     glm::vec3 rightXZ = glm::normalize(glm::cross(cameraFront, cameraUp));
     glm::vec3 nextPos = cameraPos;
