@@ -53,10 +53,18 @@ Texture imgWallEmissive;
 
 Texture imgFloorDiffuse;
 Texture imgFloorSpecular;
+Texture imgFloorNormal;
+Texture imgFloorEmissive;
+
+Texture imgCeilingDiffuse;
+Texture imgCeilingSpecular;
+Texture imgCeilingNormal;
+Texture imgCeilingEmissive;
 
 // TEXTURAS (STRUCTS SHADER)
 Textures texWall;
 Textures texFloor;
+Textures texCeiling;
 
 // LUCES
 #define NLD 1
@@ -167,6 +175,14 @@ void configScene(){
     // --- CARGA DE TEXTURAS DE SUELO
     imgFloorDiffuse.initTexture("resources/textures/wall_diffuse.png");
     imgFloorSpecular.initTexture("resources/textures/wall_specular.jpg");
+    imgFloorNormal.initTexture("resources/textures/wall_normal.jpg");
+    imgFloorEmissive.initTexture("resources/textures/wall_emissive.jpg");
+
+    // --- CARGA DE TEXTURAS DE TECHO
+    imgCeilingDiffuse.initTexture("resources/textures/wall_diffuse.png");
+    imgCeilingSpecular.initTexture("resources/textures/wall_specular.jpg");
+    imgCeilingNormal.initTexture("resources/textures/wall_normal.jpg");
+    imgCeilingEmissive.initTexture("resources/textures/wall_emissive.jpg");
 
     // Configurar PARED
     texWall.diffuse   = imgWallDiffuse.getTexture();
@@ -178,9 +194,16 @@ void configScene(){
     // Configurar SUELO
     texFloor.diffuse   = imgFloorDiffuse.getTexture();
     texFloor.specular  = imgFloorSpecular.getTexture();
-    texFloor.emissive  = imgWallEmissive.getTexture();
-    texFloor.normal    = imgWallNormal.getTexture();
+    texFloor.emissive  = imgFloorEmissive.getTexture();
+    texFloor.normal    = imgFloorNormal.getTexture();
     texFloor.shininess = 64.0;
+
+    // Configurar TECHO
+    texCeiling.diffuse   = imgCeilingDiffuse.getTexture();
+    texCeiling.specular  = imgCeilingSpecular.getTexture();
+    texCeiling.emissive  = imgCeilingEmissive.getTexture();
+    texCeiling.normal    = imgCeilingNormal.getTexture();
+    texCeiling.shininess = 64.0;
 
     // --- LUCES ---
     lightG.ambient = glm::vec3(0.05, 0.05, 0.08);
@@ -239,6 +262,21 @@ void renderScene(){
             MFloor = glm::scale(MFloor, glm::vec3(scaleFloor, 1.0f, scaleFloor));
             
             drawObjectTex(planeModel, texFloor, P, V, MFloor);
+        }
+    }
+
+    // --- DIBUJAR TECHO CON TILES (REJILLA) ---
+    float ceilingHeight = 5.0f;
+    
+    for(int z = 0; z < gridSizeZ; z++) {
+        for(int x = 0; x < gridSizeX; x++) {
+            glm::vec3 posCeiling(x * tileSize, ceilingHeight, z * tileSize);
+            
+            glm::mat4 MCeiling = glm::translate(I, posCeiling);
+            MCeiling = glm::rotate(MCeiling, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+            MCeiling = glm::scale(MCeiling, glm::vec3(scaleFloor, 1.0f, scaleFloor));
+            
+            drawObjectTex(planeModel, texCeiling, P, V, MCeiling);
         }
     }
 
