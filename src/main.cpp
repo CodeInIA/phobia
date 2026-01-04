@@ -85,6 +85,7 @@ Light lightD[NLD];
 Light lightP[NLP];
 Light lightF[NLF];
 Material mluz;
+Material mBlackWall;
 
 int w = 1000;
 int h = 1000;
@@ -94,6 +95,7 @@ float lastFrame = 0.0f;
 float walkTime = 0.0f;
 bool isWalking = false;
 bool flashlightOn = true;
+bool topViewMode = false;
 
 // --- MAIN ---
 int main() {
@@ -264,6 +266,12 @@ void configScene(){
 
     mluz.ambient = glm::vec4(0); mluz.diffuse = glm::vec4(0); 
     mluz.specular = glm::vec4(0); mluz.emissive = glm::vec4(1); mluz.shininess = 1.0;
+    
+    mBlackWall.ambient = glm::vec4(0.05, 0.05, 0.05, 1.0);
+    mBlackWall.diffuse = glm::vec4(0.05, 0.05, 0.05, 1.0);
+    mBlackWall.specular = glm::vec4(0.0, 0.0, 0.0, 1.0);
+    mBlackWall.emissive = glm::vec4(0.0, 0.0, 0.0, 1.0);
+    mBlackWall.shininess = 1.0;
 }
 
 void renderScene(){
@@ -273,8 +281,32 @@ void renderScene(){
     shaders.useShaders();
 
     float aspect = (float)w/(float)h;
-    glm::mat4 P = glm::perspective(glm::radians(60.0f), aspect, 0.1f, 100.0f);
-    glm::mat4 V = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+    glm::mat4 P = glm::perspective(glm::radians(60.0f), aspect, 0.1f, 150.0f);
+    glm::mat4 V;
+    
+    if (topViewMode) {
+        // Vista cenital: cámara desde arriba mostrando todo el laberinto
+        float tileSize = 4.0f;
+        int gridSizeX = 20;
+        int gridSizeZ = 18;
+        
+        // Centro del mapa
+        float mapCenterX = (gridSizeX * tileSize) / 2.0f;
+        float mapCenterZ = (gridSizeZ * tileSize) / 2.0f;
+        
+        // Calcular altura necesaria para que quepa todo el mapa
+        float mapWidth = gridSizeX * tileSize;
+        float mapHeight = gridSizeZ * tileSize;
+        float maxDimension = glm::max(mapWidth / aspect, mapHeight);
+        float cameraHeight = maxDimension / (2.0f * tan(glm::radians(30.0f))); // 60 grados FOV / 2
+        
+        glm::vec3 topViewPos = glm::vec3(mapCenterX, cameraHeight, mapCenterZ);
+        glm::vec3 topViewTarget = glm::vec3(mapCenterX, 0.0f, mapCenterZ);
+        V = glm::lookAt(topViewPos, topViewTarget, glm::vec3(0.0f, 0.0f, -1.0f));
+    } else {
+        // Vista primera persona normal
+        V = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+    }
 
     shaders.setVec3("ueye", cameraPos);
     setLights(P, V);
@@ -298,17 +330,19 @@ void renderScene(){
     }
 
     // --- DIBUJAR TECHO CON TILES (REJILLA) ---
-    float ceilingHeight = 5.0f;
-    
-    for(int z = 0; z < gridSizeZ; z++) {
-        for(int x = 0; x < gridSizeX; x++) {
-            glm::vec3 posCeiling(x * tileSize, ceilingHeight, z * tileSize);
-            
-            glm::mat4 MCeiling = glm::translate(I, posCeiling);
-            MCeiling = glm::rotate(MCeiling, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-            MCeiling = glm::scale(MCeiling, glm::vec3(scaleFloor, 1.0f, scaleFloor));
-            
-            drawObjectTex(planeModel, texCeiling, P, V, MCeiling);
+    if (!topViewMode) {
+        float ceilingHeight = 5.0f;
+        
+        for(int z = 0; z < gridSizeZ; z++) {
+            for(int x = 0; x < gridSizeX; x++) {
+                glm::vec3 posCeiling(x * tileSize, ceilingHeight, z * tileSize);
+                
+                glm::mat4 MCeiling = glm::translate(I, posCeiling);
+                MCeiling = glm::rotate(MCeiling, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+                MCeiling = glm::scale(MCeiling, glm::vec3(scaleFloor, 1.0f, scaleFloor));
+                
+                drawObjectTex(planeModel, texCeiling, P, V, MCeiling);
+            }
         }
     }
 
@@ -325,7 +359,11 @@ void renderScene(){
                 glm::vec3 pos(x * bSize, bH / 2.0f, z * bSize);
                 glm::mat4 M = glm::translate(I, pos);
                 M = glm::scale(M, glm::vec3(scX, scY, scZ));
-                drawObjectTex(cubeModel, texWall, P, V, M);
+                if (topViewMode) {
+                    drawObjectMat(cubeModel, mBlackWall, P, V, M);
+                } else {
+                    drawObjectTex(cubeModel, texWall, P, V, M);
+                }
             }
         }
     }
@@ -456,11 +494,27 @@ void funCursorPos(GLFWwindow* window, double xpos, double ypos) {
 void funKey(GLFWwindow* window, int key , int scancode, int action, int mods) {
     if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) glfwSetWindowShouldClose(window, true);
     if(key == GLFW_KEY_F && action == GLFW_PRESS) flashlightOn = !flashlightOn;
+    if(key == GLFW_KEY_U && action == GLFW_PRESS) topViewMode = !topViewMode;
 }
 
 void setLights(glm::mat4 P, glm::mat4 V) {
-    shaders.setLight("ulightG",lightG);
-    for(int i=0; i<NLD; i++) shaders.setLight("ulightD["+to_string(i)+"]",lightD[i]);
+    // En modo vista cenital, aumentar el brillo
+    Light modifiedLightG = lightG;
+    if (topViewMode) {
+        modifiedLightG.ambient = glm::vec3(0.6, 0.6, 0.65);
+    }
+    shaders.setLight("ulightG", modifiedLightG);
+    
+    for(int i=0; i<NLD; i++) {
+        Light light = lightD[i];
+        if (topViewMode) {
+            light.ambient = glm::vec3(0.2, 0.2, 0.2);
+            light.diffuse = glm::vec3(0.8, 0.8, 0.9);
+            light.specular = glm::vec3(0.3, 0.3, 0.3);
+        }
+        shaders.setLight("ulightD["+to_string(i)+"]", light);
+    }
+    
     for(int i=0; i<NLP; i++) {
         Light light = lightP[i];
         light.position = glm::vec3(V * glm::vec4(light.position, 1.0));
