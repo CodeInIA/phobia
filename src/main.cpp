@@ -281,8 +281,8 @@ void renderScene(){
 
     // --- DIBUJAR SUELO CON TILES (REJILLA) ---
     float tileSize = 4.0f;
-    int gridSizeX = 20;
-    int gridSizeZ = 18;
+    int gridSizeZ = mapLevel.size();
+    int gridSizeX = (gridSizeZ > 0) ? mapLevel[0].size() : 0;
 
     float scaleFloor = tileSize / 2.0f; // Dividir por 2 porque plane.obj mide 2x2
 
