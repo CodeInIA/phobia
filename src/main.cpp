@@ -93,6 +93,7 @@ int h = 1000;
 float lastFrame = 0.0f;
 float walkTime = 0.0f;
 bool isWalking = false;
+bool flashlightOn = true;
 
 // --- MAIN ---
 int main() {
@@ -454,6 +455,7 @@ void funCursorPos(GLFWwindow* window, double xpos, double ypos) {
 
 void funKey(GLFWwindow* window, int key , int scancode, int action, int mods) {
     if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) glfwSetWindowShouldClose(window, true);
+    if(key == GLFW_KEY_F && action == GLFW_PRESS) flashlightOn = !flashlightOn;
 }
 
 void setLights(glm::mat4 P, glm::mat4 V) {
@@ -468,6 +470,10 @@ void setLights(glm::mat4 P, glm::mat4 V) {
         Light light = lightF[i];
         light.position = glm::vec3(V * glm::vec4(light.position, 1.0));
         light.direction = glm::vec3(V * glm::vec4(light.direction, 0.0));
+        if (!flashlightOn) {
+            light.diffuse = glm::vec3(0.0, 0.0, 0.0);
+            light.specular = glm::vec3(0.0, 0.0, 0.0);
+        }
         shaders.setLight("ulightF["+to_string(i)+"]",light);
     }
 }
