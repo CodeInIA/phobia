@@ -42,6 +42,7 @@ uniform Textures utextures;
 uniform bool     uWithMaterials;
 uniform bool     uWithNormals;
 uniform vec3     ueye;
+uniform float    uAlpha;  // Alpha override for transparency (0 = use texture alpha, >0 = use this value)
 
 in  vec3 vnor;
 in  vec3 vpos;
@@ -81,7 +82,9 @@ void main() {
     for(int i=0; i<NLP; i++) color += funPositional (ulightP[i],material,N,V);
     for(int i=0; i<NLF; i++) color += funFocal      (ulightF[i],material,N,V);
 
-    outColor = vec4(color, material.diffuse.a);
+    // Use uAlpha if set (> 0), otherwise use texture alpha
+    float finalAlpha = (uAlpha > 0.0) ? uAlpha : material.diffuse.a;
+    outColor = vec4(color, finalAlpha);
 
 }
 

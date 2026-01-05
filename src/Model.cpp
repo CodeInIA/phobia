@@ -1,124 +1,182 @@
 #include "Model.h"
+#include <cfloat>  // For FLT_MAX
 
 //-----------------------------------------------------------------------------------------------------
-// Lee los atributos del modelo de un fichero de texto y los almacena en los vectores correspondientes
+// Helper function to process a single mesh and create its VAO
+//-----------------------------------------------------------------------------------------------------
+void Model::processMesh(aiMesh *mesh, unsigned int materialIndex, const std::string& materialName) {
+    
+    std::vector<glm::vec3>      positions;
+    std::vector<glm::vec3>      normals;
+    std::vector<glm::vec2>      textureCoords;
+    std::vector<unsigned short> indices;
+    
+    // Extract vertex attributes
+    for(unsigned int i = 0; i < mesh->mNumVertices; i++) {
+        positions.push_back(glm::vec3(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z));
+        normals.push_back(glm::normalize(glm::vec3(mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z)));
+        if(mesh->mTextureCoords[0]) 
+            textureCoords.push_back(glm::vec2(mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y));
+        else                        
+            textureCoords.push_back(glm::vec2(0.0f, 0.0f));
+    }
+    
+    // Extract indices
+    for(unsigned int i = 0; i < mesh->mNumFaces; i++) {
+        aiFace face = mesh->mFaces[i];
+        for(unsigned int j = 0; j < face.mNumIndices; j++) 
+            indices.push_back(face.mIndices[j]);
+    }
+    
+    // Create MeshData and VAO
+    MeshData meshData;
+    meshData.indexCount = indices.size();
+    meshData.materialIndex = materialIndex;
+    meshData.materialName = materialName;
+    
+    glGenVertexArrays(1, &meshData.vao);
+    glGenBuffers(1, &meshData.vboPositions);
+    glGenBuffers(1, &meshData.vboNormals);
+    glGenBuffers(1, &meshData.vboTextureCoords);
+    glGenBuffers(1, &meshData.eboIndices);
+    
+    glBindVertexArray(meshData.vao);
+        // Positions
+        glBindBuffer(GL_ARRAY_BUFFER, meshData.vboPositions);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * positions.size(), &(positions.front()), GL_STATIC_DRAW);  
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0); 
+        glEnableVertexAttribArray(0);
+        // Normals   
+        glBindBuffer(GL_ARRAY_BUFFER, meshData.vboNormals);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * normals.size(), &(normals.front()), GL_STATIC_DRAW);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0); 
+        glEnableVertexAttribArray(1);
+        // Texture coords
+        glBindBuffer(GL_ARRAY_BUFFER, meshData.vboTextureCoords);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec2) * textureCoords.size(), &(textureCoords.front()), GL_STATIC_DRAW);
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, 0); 
+        glEnableVertexAttribArray(2);
+        // Indices
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, meshData.eboIndices);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned short) * indices.size(), &(indices.front()), GL_STATIC_DRAW);
+    glBindVertexArray(0);
+    
+    meshes.push_back(meshData);
+}
+
+//-----------------------------------------------------------------------------------------------------
+// Loads all meshes from a model file using Assimp
 //-----------------------------------------------------------------------------------------------------
 void Model::initModel(const char *modelFile) {
    
- // Importa el modelo mediante la librería Assimp
+    // Import model using Assimp
     Assimp::Importer importer;
     const aiScene *scene = importer.ReadFile(modelFile,  
         aiProcess_Triangulate |     
-        aiProcess_JoinIdenticalVertices | 
-        aiProcess_PreTransformVertices  |
         aiProcess_GenSmoothNormals | 
         aiProcess_CalcTangentSpace | 
-        aiProcess_GenUVCoords);
+        aiProcess_GenUVCoords |
+        aiProcess_SortByPType);  // Removed PreTransformVertices and JoinIdenticalVertices to preserve separate meshes
+    
     if(!scene) {
         std::cout << "El fichero " << modelFile << " no se puede abrir." << std::endl;
         std::cin.get();
         exit(1);
     }
-  
- // Procesar todas las meshes de la escena
-    for(unsigned int i = 0; i < scene->mNumMeshes; i++) {
-        processMesh(scene, scene->mMeshes[i]);
+    
+    // Initialize bounds to extreme values
+    boundsMin = glm::vec3(FLT_MAX);
+    boundsMax = glm::vec3(-FLT_MAX);
+    
+    // Process all meshes in the scene
+    for(unsigned int m = 0; m < scene->mNumMeshes; m++) {
+        aiMesh *mesh = scene->mMeshes[m];
+        
+        // Get mesh name (OBJ files use 'usemtl' which becomes mesh name)
+        std::string matName = mesh->mName.C_Str();
+        
+        // If mesh name is empty, try material name
+        if(matName.empty() && mesh->mMaterialIndex < scene->mNumMaterials) {
+            aiMaterial* mat = scene->mMaterials[mesh->mMaterialIndex];
+            aiString name;
+            if(mat->Get(AI_MATKEY_NAME, name) == AI_SUCCESS) {
+                matName = name.C_Str();
+            }
+        }
+        
+        if(matName.empty()) matName = "unknown";
+        
+        // Update bounding box
+        for(unsigned int i = 0; i < mesh->mNumVertices; i++) {
+            glm::vec3 pos(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z);
+            boundsMin = glm::min(boundsMin, pos);
+            boundsMax = glm::max(boundsMax, pos);
+        }
+        
+        processMesh(mesh, mesh->mMaterialIndex, matName);
+        
+        std::cout << "  Mesh " << m << ": name='" << matName << "' (material index " << mesh->mMaterialIndex << ")" << std::endl;
     }
     
+    glm::vec3 size = getSize();
+    glm::vec3 center = getCenter();
+    std::cout << "Loaded model: " << modelFile << " with " << meshes.size() << " mesh(es)" << std::endl;
+    std::cout << "  Bounds: min(" << boundsMin.x << ", " << boundsMin.y << ", " << boundsMin.z << ")" << std::endl;
+    std::cout << "          max(" << boundsMax.x << ", " << boundsMax.y << ", " << boundsMax.z << ")" << std::endl;
+    std::cout << "  Size: (" << size.x << ", " << size.y << ", " << size.z << ")" << std::endl;
+    std::cout << "  Center: (" << center.x << ", " << center.y << ", " << center.z << ")" << std::endl;
 }
 
 //--------------------------------
-// Procesa una mesh individual
-//--------------------------------
-void Model::processMesh(const aiScene *scene, aiMesh *mesh) {
-    Mesh newMesh;
-    
-    // Extraer vértices, normales y coordenadas de textura
-    for(unsigned int i = 0; i < mesh->mNumVertices; i++) {
-        newMesh.positions.push_back(glm::vec3(mesh->mVertices[i].x, mesh->mVertices[i].y, mesh->mVertices[i].z));
-        newMesh.normals.push_back(glm::normalize(glm::vec3(mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z)));
-        if(mesh->mTextureCoords[0]) 
-            newMesh.textureCoords.push_back(glm::vec2(mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y));
-        else 
-            newMesh.textureCoords.push_back(glm::vec2(0.0f, 0.0f));
-    }
-    
-    // Extraer índices
-    for(unsigned int i = 0; i < mesh->mNumFaces; i++) {
-        aiFace face = mesh->mFaces[i];
-        for(unsigned int j = 0; j < face.mNumIndices; j++) 
-            newMesh.indices.push_back(face.mIndices[j]);
-    }
-    
-    // Crear VAO y buffers
-    glGenVertexArrays(1, &newMesh.vao);
-    glGenBuffers(1, &newMesh.vboPositions);
-    glGenBuffers(1, &newMesh.vboNormals);
-    glGenBuffers(1, &newMesh.vboTextureCoords);
-    glGenBuffers(1, &newMesh.eboIndices);
-    
-    glBindVertexArray(newMesh.vao);
-    
-    // Posiciones
-    glBindBuffer(GL_ARRAY_BUFFER, newMesh.vboPositions);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * newMesh.positions.size(), &(newMesh.positions.front()), GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(0);
-    
-    // Normales
-    glBindBuffer(GL_ARRAY_BUFFER, newMesh.vboNormals);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * newMesh.normals.size(), &(newMesh.normals.front()), GL_STATIC_DRAW);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(1);
-    
-    // Coordenadas de textura
-    glBindBuffer(GL_ARRAY_BUFFER, newMesh.vboTextureCoords);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec2) * newMesh.textureCoords.size(), &(newMesh.textureCoords.front()), GL_STATIC_DRAW);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(2);
-    
-    // Índices
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, newMesh.eboIndices);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned int) * newMesh.indices.size(), &(newMesh.indices.front()), GL_STATIC_DRAW);
-    
-    glBindVertexArray(0);
-    
-    meshes.push_back(newMesh);
-}
-
-//--------------------------------
-// Renderiza el VAO con el modelo
+// Render all meshes in the model
 //--------------------------------
 void Model::renderModel(unsigned long mode) {
     glPolygonMode(GL_FRONT_AND_BACK, mode);
-    for(auto& mesh : meshes) {
+    for(const auto& mesh : meshes) {
         glBindVertexArray(mesh.vao);
-        glDrawElements(GL_TRIANGLES, mesh.indices.size(), GL_UNSIGNED_INT, (void *)0);
-        glBindVertexArray(0);
+        glDrawElements(GL_TRIANGLES, mesh.indexCount, GL_UNSIGNED_SHORT, (void *)0);
     }
+    glBindVertexArray(0);
 }
 
 //--------------------------------
-// Renderiza un mesh específico
+// Render a specific mesh by index
 //--------------------------------
-void Model::renderMesh(unsigned long mode, int meshIndex) {
-    if(meshIndex >= 0 && meshIndex < meshes.size()) {
-        glPolygonMode(GL_FRONT_AND_BACK, mode);
-        glBindVertexArray(meshes[meshIndex].vao);
-        glDrawElements(GL_TRIANGLES, meshes[meshIndex].indices.size(), GL_UNSIGNED_INT, (void *)0);
-        glBindVertexArray(0);
-    }
+void Model::renderMesh(unsigned int meshIndex, unsigned long mode) {
+    
+    if(meshIndex >= meshes.size()) return;
+    
+    glPolygonMode(GL_FRONT_AND_BACK, mode);
+    glBindVertexArray(meshes[meshIndex].vao);
+    glDrawElements(GL_TRIANGLES, meshes[meshIndex].indexCount, GL_UNSIGNED_SHORT, (void *)0);
+    glBindVertexArray(0);
 }
 
 //--------------------------------
-// Obtiene el número de meshes
+// Get number of meshes
 //--------------------------------
-int Model::getMeshCount() {
+unsigned int Model::getMeshCount() const {
     return meshes.size();
 }
 
+//--------------------------------
+// Get material index for a mesh
+//--------------------------------
+unsigned int Model::getMeshMaterialIndex(unsigned int meshIndex) const {
+    if(meshIndex >= meshes.size()) return 0;
+    return meshes[meshIndex].materialIndex;
+}
+
+//--------------------------------
+// Get material name for a mesh
+//--------------------------------
+std::string Model::getMeshMaterialName(unsigned int meshIndex) const {
+    if(meshIndex >= meshes.size()) return "";
+    return meshes[meshIndex].materialName;
+}
+
 //-----------------------------------
-// Destructor de la clase
+// Destructor - cleanup all meshes
 //-----------------------------------
 Model::~Model() {
     for(auto& mesh : meshes) {
