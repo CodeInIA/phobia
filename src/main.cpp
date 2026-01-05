@@ -26,6 +26,7 @@ bool checkCollision(glm::vec3 newPos);
 glm::mat4 calculateFlashlightTransform(glm::vec3 &flashlightTipOut);
 void updateFlashlightLight(const glm::vec3 &flashlightTip);
 void renderFlashlight(glm::mat4 P, glm::mat4 V);
+void renderPendulums(glm::mat4 P, glm::mat4 V);
 
 // --- VARIABLES GLOBALES ---
 Shaders shaders;
@@ -43,11 +44,13 @@ bool firstMouse = true;
 
 // MAPA
 std::vector<std::string> mapLevel;
+std::vector<glm::vec2> pendulumPositions;
 
 // MODELOS
 Model cubeModel;
 Model planeModel;
 Model flashlightModel;
+Model pendulumModel;
 
 // TEXTURAS (OBJETOS) - SEPARADAS PARA PARED Y SUELO
 Texture imgWallDiffuse;
@@ -70,11 +73,24 @@ Texture imgFlashlightSpecular;
 Texture imgFlashlightNormal;
 Texture imgFlashlightEmissive;
 
+Texture imgPendulumDiffuse;
+Texture imgPendulumSpecular;
+Texture imgPendulumNormal;
+Texture imgPendulumEmissive;
+
+Texture imgPendulumWood;
+Texture imgPendulumBlade;
+Texture imgPendulumDirection;
+
 // TEXTURAS (STRUCTS SHADER)
 Textures texWall;
 Textures texFloor;
 Textures texCeiling;
 Textures texFlashlight;
+Textures texPendulum;
+Textures texPendulumWood;
+Textures texPendulumBlade;
+Textures texPendulumDirection;
 
 // LUCES
 #define NLD 1
@@ -145,6 +161,7 @@ void loadMap(const std::string& filename) {
     }
     
     mapLevel.clear();
+    pendulumPositions.clear();
     std::string line;
     int rowIndex = 0;
     
@@ -159,6 +176,11 @@ void loadMap(const std::string& filename) {
                     line[colIndex] = '0';
                     std::cout << "Posicion inicial: grid(" << colIndex << ", " << rowIndex << ") -> world(" << cameraPos.x << ", " << cameraPos.z << ")" << std::endl;
                 }
+                if (line[colIndex] == 'P') {
+                    pendulumPositions.push_back(glm::vec2(colIndex, rowIndex));
+                    line[colIndex] = '0';
+                    std::cout << "Pendulo en: grid(" << colIndex << ", " << rowIndex << ")" << std::endl;
+                }
             }
             mapLevel.push_back(line);
             rowIndex++;
@@ -167,6 +189,7 @@ void loadMap(const std::string& filename) {
     file.close();
     
     std::cout << "Mapa cargado: " << mapLevel.size() << " filas" << std::endl;
+    std::cout << "Pendulos encontrados: " << pendulumPositions.size() << std::endl;
 }
 
 void configScene(){
@@ -186,6 +209,9 @@ void configScene(){
     cubeModel.initModel("resources/models/cube.obj");
     planeModel.initModel("resources/models/plane.obj");
     flashlightModel.initModel("resources/models/flashlight.obj");
+    pendulumModel.initModel("resources/models/pendulum_blade.obj");
+    
+    std::cout << "Pendulum model loaded with " << pendulumModel.getMeshCount() << " meshes" << std::endl;
 
     // --- CARGA DE TEXTURAS DE PARED ---
     imgWallDiffuse.initTexture("resources/textures/wall_diffuse.png");
@@ -210,6 +236,11 @@ void configScene(){
     imgFlashlightSpecular.initTexture("resources/textures/flashlight/metalnessMap1.png");
     imgFlashlightNormal.initTexture("resources/textures/flashlight/normalMap1.png");
     imgFlashlightEmissive.initTexture("resources/textures/flashlight/emissiveMap1.png");
+
+    // --- CARGA DE TEXTURAS DE PÉNDULO
+    imgPendulumWood.initTexture("resources/textures/pendulum/WoodMat.png");
+    imgPendulumBlade.initTexture("resources/textures/pendulum/PendulumBladeMat.png");
+    imgPendulumDirection.initTexture("resources/textures/pendulum/DirectionMat.png");
 
     // Configurar PARED
     texWall.diffuse   = imgWallDiffuse.getTexture();
@@ -238,6 +269,27 @@ void configScene(){
     texFlashlight.emissive  = imgFlashlightEmissive.getTexture();
     texFlashlight.normal    = imgFlashlightNormal.getTexture();
     texFlashlight.shininess = 32.0;
+
+    // Configurar PÉNDULO - Holder (madera)
+    texPendulumWood.diffuse   = imgPendulumWood.getTexture();
+    texPendulumWood.specular  = 0;
+    texPendulumWood.emissive  = 0;
+    texPendulumWood.normal    = 0;
+    texPendulumWood.shininess = 32.0;
+
+    // Configurar PÉNDULO - Blade (hoja)
+    texPendulumBlade.diffuse   = imgPendulumBlade.getTexture();
+    texPendulumBlade.specular  = 0;
+    texPendulumBlade.emissive  = 0;
+    texPendulumBlade.normal    = 0;
+    texPendulumBlade.shininess = 32.0;
+
+    // Configurar PÉNDULO - Direction
+    texPendulumDirection.diffuse   = imgPendulumDirection.getTexture();
+    texPendulumDirection.specular  = 0;
+    texPendulumDirection.emissive  = 0;
+    texPendulumDirection.normal    = 0;
+    texPendulumDirection.shininess = 32.0;
 
     // --- LUCES ---
     lightG.ambient = glm::vec3(0.1, 0.1, 0.12);
@@ -370,6 +422,11 @@ void renderScene(){
 
     // --- RENDERIZAR LINTERNA EN PRIMERA PERSONA ---
     renderFlashlight(P, V);
+    
+    // --- RENDERIZAR PÉNDULOS ---
+    if (!topViewMode) {
+        renderPendulums(P, V);
+    }
 }
 
 // --- FUNCIONES DE LINTERNA ---
@@ -423,6 +480,81 @@ void renderFlashlight(glm::mat4 P, glm::mat4 V) {
     drawObjectTex(flashlightModel, texFlashlight, P, V, MFlashlight);
     
     updateFlashlightLight(flashlightTip);
+}
+
+// --- FUNCIONES DE PÉNDULO ---
+void renderPendulums(glm::mat4 P, glm::mat4 V) {
+    float tileSize = 4.0f;
+    float ceilingHeight = 5.0f;
+    float currentTime = glfwGetTime();
+    
+    // Parámetros de oscilación
+    float swingAngle = 30.0f;  // Ángulo máximo de oscilación en grados
+    float swingSpeed = 1.5f;   // Velocidad de oscilación
+    
+    // Deshabilitar culling temporalmente para el péndulo
+    glDisable(GL_CULL_FACE);
+    
+    for(const auto& pos : pendulumPositions) {
+        // El modelo tiene su origen en Y=0 y la parte superior está en Y≈3.38
+        // Queremos que la parte superior esté pegada al techo (Y=5.0)
+        // Por tanto: posY = ceilingHeight - 3.38 ≈ 1.62
+        glm::vec3 pendulumPos(pos.x * tileSize, ceilingHeight - 3.38f, pos.y * tileSize);
+        
+        // Calcular ángulo de oscilación actual
+        float angle = sin(currentTime * swingSpeed) * glm::radians(swingAngle);
+        
+        int meshCount = pendulumModel.getMeshCount();
+        
+        // Renderizar la parte fija (holder) - mesh 0
+        if(meshCount > 0) {
+            glm::mat4 MHolder = glm::translate(I, pendulumPos);
+            // Rotar todo el modelo 90º en Y para que oscile perpendicular al pasillo
+            MHolder = glm::rotate(MHolder, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+            
+            shaders.setMat4("uN", glm::transpose(glm::inverse(V * MHolder)));
+            shaders.setMat4("uM", V * MHolder);
+            shaders.setMat4("uPVM", P * V * MHolder);
+            shaders.setBool("uWithMaterials", 0);
+            shaders.setBool("uWithNormals", texPendulumWood.normal != 0);
+            shaders.setTextures("utextures", texPendulumWood);
+            
+            pendulumModel.renderMesh(GL_FILL, 0);
+        }
+        
+        // Renderizar las hojas que oscilan - meshes 1 y 2
+        // La rotación debe aplicarse alrededor del punto de anclaje superior (Y≈3.38)
+        for(int i = 1; i < meshCount; i++) {
+            glm::mat4 MBlade = glm::translate(I, pendulumPos);
+            // Rotar todo el modelo 90º en Y para que oscile perpendicular al pasillo
+            MBlade = glm::rotate(MBlade, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+            // Trasladar al punto de pivote (parte superior)
+            MBlade = glm::translate(MBlade, glm::vec3(-0.15f, 3.38f, 0.0f));
+            // Escalar el palo para hacerlo más largo (solo en Y)
+            MBlade = glm::scale(MBlade, glm::vec3(1.0f, 1.15f, 1.0f));
+            // Compensar la inclinación inicial del modelo para que esté vertical
+            MBlade = glm::rotate(MBlade, glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+            // Aplicar oscilación perpendicular al pasillo (eje Z)
+            MBlade = glm::rotate(MBlade, angle, glm::vec3(0.0f, 0.0f, 1.0f));
+            // Volver al origen
+            MBlade = glm::translate(MBlade, glm::vec3(0.0f, -3.38f, 0.0f));
+            
+            // Seleccionar textura según el mesh
+            Textures& currentTexture = (i == 1) ? texPendulumBlade : texPendulumDirection;
+            
+            shaders.setMat4("uN", glm::transpose(glm::inverse(V * MBlade)));
+            shaders.setMat4("uM", V * MBlade);
+            shaders.setMat4("uPVM", P * V * MBlade);
+            shaders.setBool("uWithMaterials", 0);
+            shaders.setBool("uWithNormals", currentTexture.normal != 0);
+            shaders.setTextures("utextures", currentTexture);
+            
+            pendulumModel.renderMesh(GL_FILL, i);
+        }
+    }
+    
+    // Reactivar culling
+    glEnable(GL_CULL_FACE);
 }
 
 // --- COLISIONES ---

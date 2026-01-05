@@ -12,27 +12,35 @@
 
 #define I glm::mat4(1.0)
 
+struct Mesh {
+    std::vector<glm::vec3>      positions;
+    std::vector<glm::vec3>      normals;
+    std::vector<glm::vec2>      textureCoords;
+    std::vector<unsigned int>   indices;
+    
+    unsigned int vao;
+    unsigned int vboPositions;
+    unsigned int vboNormals;
+    unsigned int vboTextureCoords;
+    unsigned int eboIndices;
+};
+
 class Model {
     
     public:
                         
         void initModel  (const char *modelFile);
         void renderModel(unsigned long mode);        
+        void renderMesh (unsigned long mode, int meshIndex);
+        int  getMeshCount();
                
         virtual ~Model();
                
     private:
         
-        std::vector<glm::vec3>      positions;
-        std::vector<glm::vec3>      normals;
-        std::vector<glm::vec2>      textureCoords;
-        std::vector<unsigned short> indices;
-    
-        unsigned int vao;
-        unsigned int vboPositions;
-        unsigned int vboNormals;
-        unsigned int vboTextureCoords;
-        unsigned int eboIndices;
+        std::vector<Mesh> meshes;
+        
+        void processMesh(const aiScene *scene, aiMesh *mesh);
 
 };
 
