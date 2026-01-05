@@ -1,2 +1,4 @@
 build/
 binary/phobia.exe
+libraries/
+binary/resources/doors
