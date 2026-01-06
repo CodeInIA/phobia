@@ -245,6 +245,13 @@ void Scene::render(int windowWidth, int windowHeight) {
     shaders.setVec3("ueye", m_camera.getPosition());
     setLights(P, V);
 
+    // Configure fog for horror atmosphere
+    shaders.setBool("uUseFog", !m_topViewMode);  // Disable fog in top view
+    shaders.setVec3("uFogColor", glm::vec3(0.1f, 0.1f, 0.1f));  // Dark fog matching the scene
+    shaders.setFloat("uFogDensity", 0.015f);  // Very low density for subtle fog
+    shaders.setFloat("uFogStart", 5.0f);      // Distance where fog starts
+    shaders.setFloat("uFogEnd", 35.0f);       // Distance where fog is maximum
+
     // Get map dimensions
     int gridSizeZ = static_cast<int>(m_mapLevel.size());
     int gridSizeX = (gridSizeZ > 0) ? static_cast<int>(m_mapLevel[0].size()) : 0;

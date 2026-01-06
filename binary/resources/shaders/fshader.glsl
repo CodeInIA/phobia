@@ -44,6 +44,13 @@ uniform bool     uWithNormals;
 uniform vec3     ueye;
 uniform float    uAlpha;  // Alpha override for transparency (0 = use texture alpha, >0 = use this value)
 
+// Fog parameters
+uniform bool     uUseFog;       // Enable/disable fog
+uniform vec3     uFogColor;     // Fog color (e.g., dark gray for horror)
+uniform float    uFogDensity;   // Fog density (higher = more dense)
+uniform float    uFogStart;     // Distance where fog starts
+uniform float    uFogEnd;       // Distance where fog is maximum
+
 in  vec3 vnor;
 in  vec3 vpos;
 in  vec2 vtex;
@@ -81,6 +88,26 @@ void main() {
     for(int i=0; i<NLD; i++) color += funDirectional(ulightD[i],material,N,V);
     for(int i=0; i<NLP; i++) color += funPositional (ulightP[i],material,N,V);
     for(int i=0; i<NLF; i++) color += funFocal      (ulightF[i],material,N,V);
+
+    // Apply fog if enabled
+    if(uUseFog) {
+        float distance = length(ueye - vpos);
+        
+        // Exponential squared fog for smoother, more realistic effect
+        float fogFactor = exp(-pow(uFogDensity * distance, 2.0));
+        fogFactor = clamp(fogFactor, 0.0, 1.0);
+        
+        // Alternative: Exponential fog (less smooth)
+        // float fogFactor = exp(-uFogDensity * distance);
+        // fogFactor = clamp(fogFactor, 0.0, 1.0);
+        
+        // Alternative: Linear fog (uncomment to use)
+        // float fogFactor = (uFogEnd - distance) / (uFogEnd - uFogStart);
+        // fogFactor = clamp(fogFactor, 0.0, 1.0);
+        
+        // Mix scene color with fog color
+        color = mix(uFogColor, color, fogFactor);
+    }
 
     // Use uAlpha if set (> 0), otherwise use texture alpha
     float finalAlpha = (uAlpha > 0.0) ? uAlpha : material.diffuse.a;
