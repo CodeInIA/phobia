@@ -22,6 +22,7 @@ struct MeshData {
     unsigned int indexCount;      // Number of indices for this mesh
     unsigned int materialIndex;   // Material index from Assimp
     std::string  materialName;    // Material name from Assimp
+    bool useUnsignedInt;          // True if using GL_UNSIGNED_INT indices, false for GL_UNSIGNED_SHORT
 };
 
 class Model {

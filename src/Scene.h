@@ -7,6 +7,7 @@
 #include "Camera.h"
 #include "DoorManager.h"
 #include "PendulumManager.h"
+#include "SpiderwebManager.h"
 #include "ResourceManager.h"
 #include "InputManager.h"
 #include "Shaders.h"
@@ -51,6 +52,7 @@ private:
                         int gridX, int gridZ, float tileSize, float yPos, float scale, bool flip);
     void renderDoors(glm::mat4 P, glm::mat4 V);
     void renderPendulums(glm::mat4 P, glm::mat4 V);
+    void renderSpiderwebs(glm::mat4 P, glm::mat4 V);
     void renderFlashlight(glm::mat4 P, glm::mat4 V);
     
     // Flashlight helpers
@@ -71,6 +73,9 @@ private:
 
     // Pendulum system
     PendulumManager m_pendulumManager;
+
+    // Spiderweb system
+    SpiderwebManager m_spiderwebManager;
 
     // Lights
     Light m_lightG;           // Global ambient

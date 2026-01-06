@@ -29,6 +29,9 @@ void ResourceManager::loadModels() {
     // Pendulum blade
     m_models["pendulumBlade"].initModel("resources/models/pendulum_blade.obj");
     
+    // Spiderweb
+    m_models["spiderweb"].initModel("resources/models/spiderweb.obj");
+    
     std::cout << "ResourceManager: Loaded " << m_models.size() << " models" << std::endl;
 }
 

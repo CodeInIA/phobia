@@ -9,7 +9,7 @@ void Model::processMesh(aiMesh *mesh, unsigned int materialIndex, const std::str
     std::vector<glm::vec3>      positions;
     std::vector<glm::vec3>      normals;
     std::vector<glm::vec2>      textureCoords;
-    std::vector<unsigned short> indices;
+    std::vector<unsigned int>   indices;
     
     // Extract vertex attributes
     for(unsigned int i = 0; i < mesh->mNumVertices; i++) {
@@ -33,6 +33,7 @@ void Model::processMesh(aiMesh *mesh, unsigned int materialIndex, const std::str
     meshData.indexCount = indices.size();
     meshData.materialIndex = materialIndex;
     meshData.materialName = materialName;
+    meshData.useUnsignedInt = true;  // Using GL_UNSIGNED_INT for large models
     
     glGenVertexArrays(1, &meshData.vao);
     glGenBuffers(1, &meshData.vboPositions);
@@ -58,7 +59,7 @@ void Model::processMesh(aiMesh *mesh, unsigned int materialIndex, const std::str
         glEnableVertexAttribArray(2);
         // Indices
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, meshData.eboIndices);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned short) * indices.size(), &(indices.front()), GL_STATIC_DRAW);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned int) * indices.size(), &(indices.front()), GL_STATIC_DRAW);
     glBindVertexArray(0);
     
     meshes.push_back(meshData);
@@ -135,7 +136,8 @@ void Model::renderModel(unsigned long mode) {
     glPolygonMode(GL_FRONT_AND_BACK, mode);
     for(const auto& mesh : meshes) {
         glBindVertexArray(mesh.vao);
-        glDrawElements(GL_TRIANGLES, mesh.indexCount, GL_UNSIGNED_SHORT, (void *)0);
+        GLenum indexType = mesh.useUnsignedInt ? GL_UNSIGNED_INT : GL_UNSIGNED_SHORT;
+        glDrawElements(GL_TRIANGLES, mesh.indexCount, indexType, (void *)0);
     }
     glBindVertexArray(0);
 }
@@ -149,7 +151,8 @@ void Model::renderMesh(unsigned int meshIndex, unsigned long mode) {
     
     glPolygonMode(GL_FRONT_AND_BACK, mode);
     glBindVertexArray(meshes[meshIndex].vao);
-    glDrawElements(GL_TRIANGLES, meshes[meshIndex].indexCount, GL_UNSIGNED_SHORT, (void *)0);
+    GLenum indexType = meshes[meshIndex].useUnsignedInt ? GL_UNSIGNED_INT : GL_UNSIGNED_SHORT;
+    glDrawElements(GL_TRIANGLES, meshes[meshIndex].indexCount, indexType, (void *)0);
     glBindVertexArray(0);
 }
 

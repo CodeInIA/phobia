@@ -1,4 +1,5 @@
 #include "Scene.h"
+#include "SpiderwebManager.h"
 #include <fstream>
 #include <iostream>
 #include <glm/gtc/matrix_transform.hpp>
@@ -62,6 +63,7 @@ void Scene::loadMap(const std::string& filename) {
     m_mapLevel.clear();
     m_doorManager.clear();
     m_pendulumManager.clear();
+    m_spiderwebManager.clear();
     
     std::string line;
     int rowIndex = 0;
@@ -103,9 +105,13 @@ void Scene::loadMap(const std::string& filename) {
     // Calculate pendulum orientations based on adjacent walls
     m_pendulumManager.calculateOrientations(m_mapLevel);
 
+    // Detect and place spiderwebs at concave corners
+    m_spiderwebManager.detectAndAddSpiderwebs(m_mapLevel);
+
     std::cout << "Map loaded: " << m_mapLevel.size() << " rows, " 
               << m_doorManager.getDoorCount() << " doors, "
-              << m_pendulumManager.getPendulumCount() << " pendulums" << std::endl;
+              << m_pendulumManager.getPendulumCount() << " pendulums, "
+              << m_spiderwebManager.getSpiderwebCount() << " spiderwebs" << std::endl;
 }
 
 void Scene::update(float deltaTime, InputManager& input) {
@@ -275,6 +281,9 @@ void Scene::render(int windowWidth, int windowHeight) {
 
     // Render pendulums
     renderPendulums(P, V);
+
+    // Render spiderwebs
+    renderSpiderwebs(P, V);
 
     // Render flashlight (first person only)
     renderFlashlight(P, V);
@@ -555,4 +564,111 @@ void Scene::renderPendulums(glm::mat4 P, glm::mat4 V) {
         shaders.setTextures("utextures", texDirection);
         pendulumModel.renderMesh(2, GL_FILL);
     }
+}
+
+void Scene::renderSpiderwebs(glm::mat4 P, glm::mat4 V) {
+    if (m_spiderwebManager.getSpiderwebCount() == 0) return;
+
+    Model& spiderwebModel = m_resources.getModel("spiderweb");
+    
+    // Create materials that respond to lighting (no self-illumination)
+    Material webMaterial;
+    webMaterial.ambient = glm::vec4(0.6f, 0.6f, 0.6f, 1.0f);
+    webMaterial.diffuse = glm::vec4(0.8f, 0.8f, 0.8f, 1.0f);
+    webMaterial.specular = glm::vec4(0.3f, 0.3f, 0.3f, 1.0f);
+    webMaterial.emissive = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);  // No self-illumination
+    webMaterial.shininess = 20.0f;
+
+    Material spiderMaterial;
+    spiderMaterial.ambient = glm::vec4(0.2f, 0.15f, 0.15f, 1.0f);
+    spiderMaterial.diffuse = glm::vec4(0.3f, 0.25f, 0.25f, 1.0f);
+    spiderMaterial.specular = glm::vec4(0.2f, 0.2f, 0.2f, 1.0f);
+    spiderMaterial.emissive = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);  // No self-illumination
+    spiderMaterial.shininess = 15.0f;
+
+    Material preyMaterial;
+    preyMaterial.ambient = glm::vec4(0.4f, 0.35f, 0.3f, 1.0f);
+    preyMaterial.diffuse = glm::vec4(0.6f, 0.55f, 0.5f, 1.0f);
+    preyMaterial.specular = glm::vec4(0.25f, 0.25f, 0.25f, 1.0f);
+    preyMaterial.emissive = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);  // No self-illumination
+    preyMaterial.shininess = 18.0f;
+
+    Shaders& shaders = m_resources.getShader();
+    
+    // Disable face culling to ensure all faces are visible
+    glDisable(GL_CULL_FACE);
+
+    for (const auto& web : m_spiderwebManager.getSpiderwebs()) {
+        // Calculate spiderweb world position - offset to corner based on rotation
+        glm::vec3 webPos;
+        float halfBlock = BLOCK_SIZE / 2.0f;
+        
+        // Base position at grid cell center
+        webPos.x = web.gridPos.x * BLOCK_SIZE;
+        webPos.y = 0.0f;  // Position at lower corner, very near the floor
+        webPos.z = web.gridPos.y * BLOCK_SIZE;
+        
+        // Adjust position to corner based on rotation
+        // NE and SW need larger offset to reach the corner properly
+        float cornerOffset = halfBlock * 0.45f;
+        
+        if (web.rotation == 0.0f) {          // SE corner (facing NW)
+            webPos.x += cornerOffset;
+            webPos.z += cornerOffset;
+        } else if (web.rotation == 90.0f) {  // NE corner (was SW, now adjusted)
+            webPos.x += cornerOffset;  // Increased offset to reach corner
+            webPos.z -= cornerOffset;
+        } else if (web.rotation == 180.0f) { // NW corner (reference - looks perfect)
+            webPos.x -= cornerOffset;
+            webPos.z -= cornerOffset;
+        } else if (web.rotation == 270.0f) { // SW corner (was NE, now adjusted)
+            webPos.x -= cornerOffset;  // Increased offset to reach corner
+            webPos.z += cornerOffset;
+        }
+
+        // Base transformation - position and rotation
+        // NW corner (180°) at position (1,1) is the reference that looks good
+        // Adjust other corners to match that orientation relative to their walls
+        glm::mat4 M = glm::translate(I, webPos);
+        
+        float finalRotation = web.rotation + -30.0f;  // Base adjustment for model orientation
+        
+        M = glm::rotate(M, glm::radians(finalRotation), glm::vec3(0.0f, 1.0f, 0.0f));
+        
+        // Scale to fit nicely in the corner - adjusted size
+        float scale = 0.18f;
+        M = glm::scale(M, glm::vec3(scale, scale, scale));
+
+        // The spiderweb model has multiple meshes (node_3 to node_10):
+        // - Mesh 0 (node_3): Web_opaque (material index 1)
+        // - Mesh 1,2 (node_4,5): Spider_opaque (material index 2)
+        // - Mesh 3-7 (node_6-10): Prey_opaque (material index 3)
+
+        // Render all meshes - the model should have 8 submeshes
+        unsigned int meshCount = spiderwebModel.getMeshCount();
+        
+        // Render each mesh individually with its corresponding material
+        for (unsigned int meshIndex = 0; meshIndex < meshCount; meshIndex++) {
+            unsigned int matIndex = spiderwebModel.getMeshMaterialIndex(meshIndex);
+            
+            // Select appropriate material based on material index
+            // Material index 1 = Web_opaque, 2 = Spider_opaque, 3 = Prey_opaque
+            Material* currentMaterial = &webMaterial;
+            if (matIndex == 2) {
+                currentMaterial = &spiderMaterial;
+            } else if (matIndex == 3) {
+                currentMaterial = &preyMaterial;
+            }
+
+            shaders.setMat4("uN", glm::transpose(glm::inverse(V * M)));
+            shaders.setMat4("uM", V * M);
+            shaders.setMat4("uPVM", P * V * M);
+            shaders.setBool("uWithMaterials", 1);
+            shaders.setMaterial("umaterial", *currentMaterial);
+            spiderwebModel.renderMesh(meshIndex, GL_FILL);
+        }
+    }
+    
+    // Re-enable face culling
+    glEnable(GL_CULL_FACE);
 }
