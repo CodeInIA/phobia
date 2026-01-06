@@ -32,6 +32,9 @@ void ResourceManager::loadModels() {
     // Spiderweb
     m_models["spiderweb"].initModel("resources/models/spiderweb.obj");
     
+    // Emergency exit sign
+    m_models["exitSign"].initModel("resources/models/emergency_escape_lighting.obj");
+    
     std::cout << "ResourceManager: Loaded " << m_models.size() << " models" << std::endl;
 }
 
@@ -70,6 +73,11 @@ void ResourceManager::loadTextures() {
     m_textures["pendulumWood"].initTexture("resources/textures/pendulum/WoodMat.png");
     m_textures["pendulumBlade"].initTexture("resources/textures/pendulum/PendulumBladeMat.png");
     m_textures["pendulumDirection"].initTexture("resources/textures/pendulum/DirectionMat.png");
+
+    // Exit sign textures
+    m_textures["exitSignDiffuse"].initTexture("resources/textures/emergency_escape_lighting/EmergencyExitLight.png");
+    m_textures["exitSignSpecular"].initTexture("resources/textures/emergency_escape_lighting/metalnessMap1.png");
+    m_textures["exitSignNormal"].initTexture("resources/textures/emergency_escape_lighting/normalMap1.png");
 
     std::cout << "ResourceManager: Loaded " << m_textures.size() << " textures" << std::endl;
 }
@@ -146,6 +154,14 @@ void ResourceManager::setupTextureGroups() {
     texPendulumDirection.emissive  = 0;
     texPendulumDirection.normal    = 0;
     texPendulumDirection.shininess = 32.0f;
+
+    // Exit sign texture group
+    Textures& texExitSign = m_textureGroups["exitSign"];
+    texExitSign.diffuse   = m_textures["exitSignDiffuse"].getTexture();
+    texExitSign.specular  = m_textures["exitSignSpecular"].getTexture();
+    texExitSign.emissive  = m_textures["exitSignDiffuse"].getTexture();  // Use diffuse as emissive for glowing effect
+    texExitSign.normal    = m_textures["exitSignNormal"].getTexture();
+    texExitSign.shininess = 32.0f;
 
     std::cout << "ResourceManager: Created " << m_textureGroups.size() << " texture groups" << std::endl;
 }

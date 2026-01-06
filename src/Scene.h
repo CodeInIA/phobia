@@ -6,6 +6,7 @@
 #include <glm/glm.hpp>
 #include "Camera.h"
 #include "DoorManager.h"
+#include "ExitSignManager.h"
 #include "PendulumManager.h"
 #include "SpiderwebManager.h"
 #include "ResourceManager.h"
@@ -51,6 +52,7 @@ private:
     void drawTiledPlane(Model& model, Textures& tex, glm::mat4 P, glm::mat4 V, 
                         int gridX, int gridZ, float tileSize, float yPos, float scale, bool flip);
     void renderDoors(glm::mat4 P, glm::mat4 V);
+    void renderExitSigns(glm::mat4 P, glm::mat4 V);
     void renderPendulums(glm::mat4 P, glm::mat4 V);
     void renderSpiderwebs(glm::mat4 P, glm::mat4 V);
     void renderFlashlight(glm::mat4 P, glm::mat4 V);
@@ -71,6 +73,9 @@ private:
     // Door system
     DoorManager m_doorManager;
 
+    // Exit sign system
+    ExitSignManager m_exitSignManager;
+
     // Pendulum system
     PendulumManager m_pendulumManager;
 
@@ -80,7 +85,7 @@ private:
     // Lights
     Light m_lightG;           // Global ambient
     Light m_lightD[1];        // Directional lights
-    Light m_lightP[1];        // Point lights
+    Light m_lightP[2];        // Point lights (0: original, 1: exit sign)
     Light m_lightF[2];        // Flashlights/Spotlights
     Material m_mluz;          // Light material
     Material m_mBlackWall;    // Black wall material for top view

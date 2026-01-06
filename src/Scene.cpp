@@ -1,4 +1,5 @@
 #include "Scene.h"
+#include "ExitSignManager.h"
 #include "SpiderwebManager.h"
 #include <fstream>
 #include <iostream>
@@ -62,6 +63,7 @@ void Scene::loadMap(const std::string& filename) {
 
     m_mapLevel.clear();
     m_doorManager.clear();
+    m_exitSignManager.clear();
     m_pendulumManager.clear();
     m_spiderwebManager.clear();
     
@@ -86,6 +88,10 @@ void Scene::loadMap(const std::string& filename) {
                 if (line[colIndex] == 'D' || line[colIndex] == 'E') {
                     DoorType type = (line[colIndex] == 'D') ? DoorType::NORMAL : DoorType::FIRE_EXIT;
                     m_doorManager.addDoor(glm::ivec2(colIndex, rowIndex), type);
+                    // Also add exit sign for fire exit doors
+                    if (line[colIndex] == 'E') {
+                        m_exitSignManager.addExitSign(glm::ivec2(colIndex, rowIndex));
+                    }
                 }
                 // Detect pendulums - 'P'
                 if (line[colIndex] == 'P') {
@@ -110,6 +116,7 @@ void Scene::loadMap(const std::string& filename) {
 
     std::cout << "Map loaded: " << m_mapLevel.size() << " rows, " 
               << m_doorManager.getDoorCount() << " doors, "
+              << m_exitSignManager.getExitSigns().size() << " exit signs, "
               << m_pendulumManager.getPendulumCount() << " pendulums, "
               << m_spiderwebManager.getSpiderwebCount() << " spiderwebs" << std::endl;
 }
@@ -279,6 +286,9 @@ void Scene::render(int windowWidth, int windowHeight) {
     // Render doors
     renderDoors(P, V);
 
+    // Render exit signs
+    renderExitSigns(P, V);
+
     // Render pendulums
     renderPendulums(P, V);
 
@@ -308,10 +318,33 @@ void Scene::setLights(glm::mat4 P, glm::mat4 V) {
         shaders.setLight("ulightD[" + std::to_string(i) + "]", light);
     }
 
-    for (int i = 0; i < 1; i++) {
-        Light light = m_lightP[i];
-        light.position = glm::vec3(V * glm::vec4(light.position, 1.0f));
-        shaders.setLight("ulightP[" + std::to_string(i) + "]", light);
+    // Point lights
+    Light light0 = m_lightP[0];
+    light0.position = glm::vec3(V * glm::vec4(light0.position, 1.0f));
+    shaders.setLight("ulightP[0]", light0);
+
+    // Exit sign green light
+    if (!m_exitSignManager.getExitSigns().empty()) {
+        const auto& sign = m_exitSignManager.getExitSigns()[0];
+        glm::vec3 signPos;
+        signPos.x = sign.gridPos.x * BLOCK_SIZE + BLOCK_SIZE * -0.5f;
+        signPos.y = BLOCK_HEIGHT - 0.3f;  // Slightly below ceiling
+        signPos.z = sign.gridPos.y * BLOCK_SIZE + BLOCK_SIZE * 0.5f;
+        
+        Light exitLight;
+        exitLight.position = glm::vec3(V * glm::vec4(signPos, 1.0f));
+        exitLight.ambient  = glm::vec3(0.02f, 0.05f, 0.02f);
+        exitLight.diffuse  = glm::vec3(0.2f, 0.8f, 0.2f);  // Green light with reduced intensity
+        exitLight.specular = glm::vec3(0.1f, 0.2f, 0.1f);
+        exitLight.c0 = 1.0f;
+        exitLight.c1 = 0.35f;   // Increased linear attenuation
+        exitLight.c2 = 0.44f;   // Increased quadratic attenuation for faster falloff
+        shaders.setLight("ulightP[1]", exitLight);
+    } else {
+        // No exit sign, use default light
+        Light light1 = m_lightP[1];
+        light1.position = glm::vec3(V * glm::vec4(light1.position, 1.0f));
+        shaders.setLight("ulightP[1]", light1);
     }
 
     for (int i = 0; i < 2; i++) {
@@ -439,6 +472,40 @@ void Scene::renderDoors(glm::mat4 P, glm::mat4 V) {
     }
 
     glEnable(GL_CULL_FACE);
+}
+
+void Scene::renderExitSigns(glm::mat4 P, glm::mat4 V) {
+    if (m_exitSignManager.getExitSigns().empty()) return;
+
+    Model& exitSignModel = m_resources.getModel("exitSign");
+    Textures& texExitSign = m_resources.getTextureGroup("exitSign");
+
+    for (const auto& sign : m_exitSignManager.getExitSigns()) {
+        // Calculate position - at the right edge of the tile
+        glm::vec3 signPos;
+        signPos.x = sign.gridPos.x * BLOCK_SIZE + BLOCK_SIZE * -0.5f;  // Right edge
+        signPos.y = BLOCK_HEIGHT;  // At ceiling level
+        signPos.z = sign.gridPos.y * BLOCK_SIZE + BLOCK_SIZE * 0.5f;   // Center of tile
+
+        // Get model size to scale appropriately
+        glm::vec3 modelSize = exitSignModel.getSize();
+        
+        // Scale the model to fit nicely at ceiling (make it smaller than a full block)
+        float desiredWidth = BLOCK_SIZE * 0.6f;  // 60% of block size
+        float scale = desiredWidth / modelSize.x;
+        
+        // Create transformation matrix
+        glm::mat4 M = glm::translate(I, signPos);
+        // Rotate 90 degrees around Y axis
+        M = glm::rotate(M, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        // The sign should hang from the ceiling, so we offset it down slightly
+        M = glm::translate(M, glm::vec3(0.0f, -modelSize.y * scale * 0.5f, 0.0f));
+        // Apply uniform scale
+        M = glm::scale(M, glm::vec3(scale, scale, scale));
+
+        // Draw the exit sign
+        drawObjectTex(exitSignModel, texExitSign, P, V, M);
+    }
 }
 
 glm::mat4 Scene::calculateFlashlightTransform(glm::vec3& flashlightTipOut) {
