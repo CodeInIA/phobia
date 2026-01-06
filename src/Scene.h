@@ -6,6 +6,7 @@
 #include <glm/glm.hpp>
 #include "Camera.h"
 #include "DoorManager.h"
+#include "PendulumManager.h"
 #include "ResourceManager.h"
 #include "InputManager.h"
 #include "Shaders.h"
@@ -49,6 +50,7 @@ private:
     void drawTiledPlane(Model& model, Textures& tex, glm::mat4 P, glm::mat4 V, 
                         int gridX, int gridZ, float tileSize, float yPos, float scale, bool flip);
     void renderDoors(glm::mat4 P, glm::mat4 V);
+    void renderPendulums(glm::mat4 P, glm::mat4 V);
     void renderFlashlight(glm::mat4 P, glm::mat4 V);
     
     // Flashlight helpers
@@ -66,6 +68,9 @@ private:
 
     // Door system
     DoorManager m_doorManager;
+
+    // Pendulum system
+    PendulumManager m_pendulumManager;
 
     // Lights
     Light m_lightG;           // Global ambient

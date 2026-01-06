@@ -61,6 +61,7 @@ void Scene::loadMap(const std::string& filename) {
 
     m_mapLevel.clear();
     m_doorManager.clear();
+    m_pendulumManager.clear();
     
     std::string line;
     int rowIndex = 0;
@@ -84,6 +85,11 @@ void Scene::loadMap(const std::string& filename) {
                     DoorType type = (line[colIndex] == 'D') ? DoorType::NORMAL : DoorType::FIRE_EXIT;
                     m_doorManager.addDoor(glm::ivec2(colIndex, rowIndex), type);
                 }
+                // Detect pendulums - 'P'
+                if (line[colIndex] == 'P') {
+                    m_pendulumManager.addPendulum(glm::ivec2(colIndex, rowIndex));
+                    line[colIndex] = '0';  // Replace with empty space for rendering
+                }
             }
             m_mapLevel.push_back(line);
             rowIndex++;
@@ -94,8 +100,12 @@ void Scene::loadMap(const std::string& filename) {
     // Calculate door orientations based on adjacent walls
     m_doorManager.calculateOrientations(m_mapLevel);
 
+    // Calculate pendulum orientations based on adjacent walls
+    m_pendulumManager.calculateOrientations(m_mapLevel);
+
     std::cout << "Map loaded: " << m_mapLevel.size() << " rows, " 
-              << m_doorManager.getDoorCount() << " doors" << std::endl;
+              << m_doorManager.getDoorCount() << " doors, "
+              << m_pendulumManager.getPendulumCount() << " pendulums" << std::endl;
 }
 
 void Scene::update(float deltaTime, InputManager& input) {
@@ -115,6 +125,9 @@ void Scene::update(float deltaTime, InputManager& input) {
 
     // Update door animations
     m_doorManager.update(deltaTime);
+
+    // Update pendulum physics
+    m_pendulumManager.update(deltaTime);
 }
 
 void Scene::processActions(const InputState& input) {
@@ -176,7 +189,12 @@ bool Scene::checkCollision(glm::vec3 newPos) {
     }
 
     // Check door collisions
-    return m_doorManager.checkCollision(newPos, PLAYER_RADIUS);
+    if (m_doorManager.checkCollision(newPos, PLAYER_RADIUS)) {
+        return true;
+    }
+
+    // Check pendulum collisions
+    return m_pendulumManager.checkCollision(newPos, PLAYER_RADIUS);
 }
 
 void Scene::render(int windowWidth, int windowHeight) {
@@ -254,6 +272,9 @@ void Scene::render(int windowWidth, int windowHeight) {
 
     // Render doors
     renderDoors(P, V);
+
+    // Render pendulums
+    renderPendulums(P, V);
 
     // Render flashlight (first person only)
     renderFlashlight(P, V);
@@ -465,4 +486,73 @@ void Scene::renderFlashlight(glm::mat4 P, glm::mat4 V) {
     drawObjectTex(flashlightModel, texFlashlight, P, V, MFlashlight);
 
     updateFlashlightLight(flashlightTip);
+}
+
+void Scene::renderPendulums(glm::mat4 P, glm::mat4 V) {
+    if (m_pendulumManager.getPendulumCount() == 0) return;
+
+    Model& pendulumModel = m_resources.getModel("pendulumBlade");
+    
+    // Get texture groups for the three materials
+    Textures& texWood = m_resources.getTextureGroup("pendulumWood");
+    Textures& texBlade = m_resources.getTextureGroup("pendulumBlade");
+    Textures& texDirection = m_resources.getTextureGroup("pendulumDirection");
+
+    for (const auto& pendulum : m_pendulumManager.getPendulums()) {
+        // Calculate pendulum world position (centered on ceiling tile)
+        glm::vec3 pivotPos;
+        pivotPos.x = pendulum.gridPos.x * BLOCK_SIZE;
+        pivotPos.y = BLOCK_HEIGHT;  // At ceiling
+        pivotPos.z = pendulum.gridPos.y * BLOCK_SIZE;
+
+        // The model is centered around Y=3.38 approximately (top of holder)
+        // We need to position it so the holder is at the ceiling
+        float modelTopY = 3.384f;  // Top of the holder in model space
+        
+        // Base transformation for the static holder (Mesh 0)
+        // First rotate the entire model 90 degrees around Y axis
+        glm::mat4 MHolder = glm::translate(I, pivotPos);
+        MHolder = glm::rotate(MHolder, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        MHolder = glm::translate(MHolder, glm::vec3(0.0f, -modelTopY, 0.0f));
+
+        // Render Mesh 0: PendulumHolder_0 (WoodMat) - STATIC, no swing
+        Shaders& shaders = m_resources.getShader();
+        shaders.setMat4("uN", glm::transpose(glm::inverse(V * MHolder)));
+        shaders.setMat4("uM", V * MHolder);
+        shaders.setMat4("uPVM", P * V * MHolder);
+        shaders.setBool("uWithMaterials", 0);
+        shaders.setBool("uWithNormals", 0);
+        shaders.setFloat("uAlpha", 0.0f);
+        shaders.setTextures("utextures", texWood);
+        pendulumModel.renderMesh(0, GL_FILL);
+
+        // Transformation for the swinging parts (Mesh 1 and 2)
+        // Apply the same 90 degree rotation, then the swing
+        glm::mat4 MSwing = glm::translate(I, pivotPos);
+        MSwing = glm::rotate(MSwing, glm::radians(90.0f + pendulum.rotation), glm::vec3(0.0f, 1.0f, 0.0f));
+        MSwing = glm::translate(MSwing, glm::vec3(0.0f, -modelTopY, 0.0f));
+        
+        // Apply swing rotation around the pivot (Z-axis after 90º Y rotation)
+        // Translate to pivot point with X offset to align with holder
+        MSwing = glm::translate(MSwing, glm::vec3(-0.15f, modelTopY, 0.0f));
+        // Scale the pole to make it longer
+        MSwing = glm::scale(MSwing, glm::vec3(1.0f, 1.15f, 1.0f));
+        // Compensate for the model's initial tilt to make it vertical
+        MSwing = glm::rotate(MSwing, glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        // Apply the oscillating swing angle
+        MSwing = glm::rotate(MSwing, glm::radians(pendulum.swingAngle), glm::vec3(0.0f, 0.0f, 1.0f));
+        // Return to origin
+        MSwing = glm::translate(MSwing, glm::vec3(0.0f, -modelTopY, 0.0f));
+
+        // Render Mesh 1: PendulumBlade_0 (PendulumBladeMat) - SWINGING
+        shaders.setMat4("uN", glm::transpose(glm::inverse(V * MSwing)));
+        shaders.setMat4("uM", V * MSwing);
+        shaders.setMat4("uPVM", P * V * MSwing);
+        shaders.setTextures("utextures", texBlade);
+        pendulumModel.renderMesh(1, GL_FILL);
+
+        // Render Mesh 2: PendulumBlade_1 (DirectionMat) - SWINGING
+        shaders.setTextures("utextures", texDirection);
+        pendulumModel.renderMesh(2, GL_FILL);
+    }
 }

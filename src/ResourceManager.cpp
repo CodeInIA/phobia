@@ -26,6 +26,9 @@ void ResourceManager::loadModels() {
     m_models["doorExitExtra1"].initModel("resources/models/doors/fire_exit/Door04_Extra01.obj");
     m_models["doorExitExtra2"].initModel("resources/models/doors/fire_exit/Door04_Extra02.obj");
     
+    // Pendulum blade
+    m_models["pendulumBlade"].initModel("resources/models/pendulum_blade.obj");
+    
     std::cout << "ResourceManager: Loaded " << m_models.size() << " models" << std::endl;
 }
 
@@ -59,6 +62,11 @@ void ResourceManager::loadTextures() {
     m_textures["doorSpecular"].initTexture("resources/textures/doors/DoorPack_Metallic.jpeg");
     m_textures["doorNormal"].initTexture("resources/textures/doors/DoorPack_Normal.png");
     m_textures["doorGlassDiffuse"].initTexture("resources/textures/doors/DoorPack_Opacity.jpeg");
+
+    // Pendulum textures
+    m_textures["pendulumWood"].initTexture("resources/textures/pendulum/WoodMat.png");
+    m_textures["pendulumBlade"].initTexture("resources/textures/pendulum/PendulumBladeMat.png");
+    m_textures["pendulumDirection"].initTexture("resources/textures/pendulum/DirectionMat.png");
 
     std::cout << "ResourceManager: Loaded " << m_textures.size() << " textures" << std::endl;
 }
@@ -111,6 +119,30 @@ void ResourceManager::setupTextureGroups() {
     texDoorGlass.emissive  = 0;
     texDoorGlass.normal    = 0;
     texDoorGlass.shininess = 96.0f;
+
+    // Pendulum wood texture group (for holder)
+    Textures& texPendulumWood = m_textureGroups["pendulumWood"];
+    texPendulumWood.diffuse   = m_textures["pendulumWood"].getTexture();
+    texPendulumWood.specular  = 0;
+    texPendulumWood.emissive  = 0;
+    texPendulumWood.normal    = 0;
+    texPendulumWood.shininess = 32.0f;
+
+    // Pendulum blade texture group
+    Textures& texPendulumBlade = m_textureGroups["pendulumBlade"];
+    texPendulumBlade.diffuse   = m_textures["pendulumBlade"].getTexture();
+    texPendulumBlade.specular  = 0;
+    texPendulumBlade.emissive  = 0;
+    texPendulumBlade.normal    = 0;
+    texPendulumBlade.shininess = 32.0f;
+
+    // Pendulum direction texture group
+    Textures& texPendulumDirection = m_textureGroups["pendulumDirection"];
+    texPendulumDirection.diffuse   = m_textures["pendulumDirection"].getTexture();
+    texPendulumDirection.specular  = 0;
+    texPendulumDirection.emissive  = 0;
+    texPendulumDirection.normal    = 0;
+    texPendulumDirection.shininess = 32.0f;
 
     std::cout << "ResourceManager: Created " << m_textureGroups.size() << " texture groups" << std::endl;
 }
