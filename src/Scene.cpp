@@ -14,18 +14,18 @@ Scene::Scene(ResourceManager& resources)
     , m_walkTime(0.0f)
     , m_isWalking(false)
 {
-    // Initialize lights
-    m_lightG.ambient = glm::vec3(0.1f, 0.1f, 0.12f);
+    // Initialize lights - reduced ambient for darker atmosphere
+    m_lightG.ambient = glm::vec3(0.04f, 0.04f, 0.05f);
 
     m_lightD[0].direction = glm::vec3(-1.0f, -1.0f, 0.0f);
-    m_lightD[0].ambient   = glm::vec3(0.03f, 0.03f, 0.03f);
-    m_lightD[0].diffuse   = glm::vec3(0.2f, 0.2f, 0.25f);
-    m_lightD[0].specular  = glm::vec3(0.08f, 0.08f, 0.08f);
+    m_lightD[0].ambient   = glm::vec3(0.015f, 0.015f, 0.015f);
+    m_lightD[0].diffuse   = glm::vec3(0.1f, 0.1f, 0.12f);
+    m_lightD[0].specular  = glm::vec3(0.04f, 0.04f, 0.04f);
 
     m_lightP[0].position = glm::vec3(40.0f, 10.0f, 40.0f);
-    m_lightP[0].ambient  = glm::vec3(0.01f, 0.01f, 0.01f);
-    m_lightP[0].diffuse  = glm::vec3(0.15f, 0.15f, 0.2f);
-    m_lightP[0].specular = glm::vec3(0.05f, 0.05f, 0.05f);
+    m_lightP[0].ambient  = glm::vec3(0.005f, 0.005f, 0.005f);
+    m_lightP[0].diffuse  = glm::vec3(0.08f, 0.08f, 0.1f);
+    m_lightP[0].specular = glm::vec3(0.03f, 0.03f, 0.03f);
     m_lightP[0].c0 = 1.00f; m_lightP[0].c1 = 0.05f; m_lightP[0].c2 = 0.01f;
 
     // Flashlight
