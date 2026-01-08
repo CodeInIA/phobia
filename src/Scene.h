@@ -9,6 +9,7 @@
 #include "ExitSignManager.h"
 #include "PendulumManager.h"
 #include "SpiderwebManager.h"
+#include "TorchManager.h"
 #include "ResourceManager.h"
 #include "InputManager.h"
 #include "Shaders.h"
@@ -48,13 +49,14 @@ private:
     // Rendering helpers
     void setLights(glm::mat4 P, glm::mat4 V);
     void drawObjectMat(Model& model, Material& material, glm::mat4 P, glm::mat4 V, glm::mat4 M);
-    void drawObjectTex(Model& model, Textures& textures, glm::mat4 P, glm::mat4 V, glm::mat4 M, float alpha = 0.0f);
+    void drawObjectTex(Model& model, Textures& textures, glm::mat4 P, glm::mat4 V, glm::mat4 M, float alpha = 0.0f, bool useAlpha = false);
     void drawTiledPlane(Model& model, Textures& tex, glm::mat4 P, glm::mat4 V, 
                         int gridX, int gridZ, float tileSize, float yPos, float scale, bool flip);
     void renderDoors(glm::mat4 P, glm::mat4 V);
     void renderExitSigns(glm::mat4 P, glm::mat4 V);
     void renderPendulums(glm::mat4 P, glm::mat4 V);
     void renderSpiderwebs(glm::mat4 P, glm::mat4 V);
+    void renderTorches(glm::mat4 P, glm::mat4 V);
     void renderFlashlight(glm::mat4 P, glm::mat4 V);
     
     // Flashlight helpers
@@ -82,10 +84,13 @@ private:
     // Spiderweb system
     SpiderwebManager m_spiderwebManager;
 
+    // Torch system
+    TorchManager m_torchManager;
+
     // Lights
     Light m_lightG;           // Global ambient
     Light m_lightD[1];        // Directional lights
-    Light m_lightP[2];        // Point lights (0: original, 1: exit sign)
+    Light m_lightP[12];       // Point lights (0: unused, 1: exit sign, 2-11: torches)
     Light m_lightF[2];        // Flashlights/Spotlights
     Material m_mluz;          // Light material
     Material m_mBlackWall;    // Black wall material for top view
@@ -94,6 +99,7 @@ private:
     bool m_flashlightOn = true;
     bool m_topViewMode = false;
     float m_walkTime = 0.0f;
+    float m_gameTime = 0.0f;  // Total elapsed time for torch flicker
     bool m_isWalking = false;
 
     // Constants

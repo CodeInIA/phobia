@@ -1,6 +1,7 @@
 #include "Scene.h"
 #include "ExitSignManager.h"
 #include "SpiderwebManager.h"
+#include "TorchManager.h"
 #include <fstream>
 #include <iostream>
 #include <glm/gtc/matrix_transform.hpp>
@@ -15,19 +16,31 @@ Scene::Scene(ResourceManager& resources)
     , m_walkTime(0.0f)
     , m_isWalking(false)
 {
-    // Initialize lights - reduced ambient for darker atmosphere
-    m_lightG.ambient = glm::vec3(0.04f, 0.04f, 0.05f);
+    // Initialize lights - PITCH BLACK for horror atmosphere
+    // Only torches and flashlight provide light
+    m_lightG.ambient = glm::vec3(0.0f, 0.0f, 0.0f);  // No ambient light
 
+    // Disable directional light
     m_lightD[0].direction = glm::vec3(-1.0f, -1.0f, 0.0f);
-    m_lightD[0].ambient   = glm::vec3(0.015f, 0.015f, 0.015f);
-    m_lightD[0].diffuse   = glm::vec3(0.1f, 0.1f, 0.12f);
-    m_lightD[0].specular  = glm::vec3(0.04f, 0.04f, 0.04f);
+    m_lightD[0].ambient   = glm::vec3(0.0f, 0.0f, 0.0f);
+    m_lightD[0].diffuse   = glm::vec3(0.0f, 0.0f, 0.0f);
+    m_lightD[0].specular  = glm::vec3(0.0f, 0.0f, 0.0f);
 
-    m_lightP[0].position = glm::vec3(40.0f, 10.0f, 40.0f);
-    m_lightP[0].ambient  = glm::vec3(0.005f, 0.005f, 0.005f);
-    m_lightP[0].diffuse  = glm::vec3(0.08f, 0.08f, 0.1f);
-    m_lightP[0].specular = glm::vec3(0.03f, 0.03f, 0.03f);
-    m_lightP[0].c0 = 1.00f; m_lightP[0].c1 = 0.05f; m_lightP[0].c2 = 0.01f;
+    // Disable first point light (unused)
+    m_lightP[0].position = glm::vec3(0.0f, 0.0f, 0.0f);
+    m_lightP[0].ambient  = glm::vec3(0.0f, 0.0f, 0.0f);
+    m_lightP[0].diffuse  = glm::vec3(0.0f, 0.0f, 0.0f);
+    m_lightP[0].specular = glm::vec3(0.0f, 0.0f, 0.0f);
+    m_lightP[0].c0 = 1.0f; m_lightP[0].c1 = 0.0f; m_lightP[0].c2 = 0.0f;
+    
+    // Initialize all torch point lights (slots 2-11) as disabled
+    for (int i = 2; i < 12; i++) {
+        m_lightP[i].position = glm::vec3(0.0f, 0.0f, 0.0f);
+        m_lightP[i].ambient  = glm::vec3(0.0f, 0.0f, 0.0f);
+        m_lightP[i].diffuse  = glm::vec3(0.0f, 0.0f, 0.0f);
+        m_lightP[i].specular = glm::vec3(0.0f, 0.0f, 0.0f);
+        m_lightP[i].c0 = 1.0f; m_lightP[i].c1 = 0.14f; m_lightP[i].c2 = 0.07f;
+    }
 
     // Flashlight
     m_lightF[0].position    = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -66,6 +79,7 @@ void Scene::loadMap(const std::string& filename) {
     m_exitSignManager.clear();
     m_pendulumManager.clear();
     m_spiderwebManager.clear();
+    m_torchManager.clear();
     
     std::string line;
     int rowIndex = 0;
@@ -98,6 +112,11 @@ void Scene::loadMap(const std::string& filename) {
                     m_pendulumManager.addPendulum(glm::ivec2(colIndex, rowIndex));
                     line[colIndex] = '0';  // Replace with empty space for rendering
                 }
+                // Detect torches - 'T'
+                if (line[colIndex] == 'T') {
+                    m_torchManager.addTorch(glm::ivec2(colIndex, rowIndex));
+                    line[colIndex] = '0';  // Replace with empty space for rendering
+                }
             }
             m_mapLevel.push_back(line);
             rowIndex++;
@@ -114,11 +133,15 @@ void Scene::loadMap(const std::string& filename) {
     // Detect and place spiderwebs at concave corners
     m_spiderwebManager.detectAndAddSpiderwebs(m_mapLevel);
 
+    // Calculate torch orientations based on adjacent walls
+    m_torchManager.calculateOrientations(m_mapLevel);
+
     std::cout << "Map loaded: " << m_mapLevel.size() << " rows, " 
               << m_doorManager.getDoorCount() << " doors, "
               << m_exitSignManager.getExitSigns().size() << " exit signs, "
               << m_pendulumManager.getPendulumCount() << " pendulums, "
-              << m_spiderwebManager.getSpiderwebCount() << " spiderwebs" << std::endl;
+              << m_spiderwebManager.getSpiderwebCount() << " spiderwebs, "
+              << m_torchManager.getTorchCount() << " torches" << std::endl;
 }
 
 void Scene::update(float deltaTime, InputManager& input) {
@@ -141,6 +164,9 @@ void Scene::update(float deltaTime, InputManager& input) {
 
     // Update pendulum physics
     m_pendulumManager.update(deltaTime);
+
+    // Update game time for torch flicker
+    m_gameTime += deltaTime;
 }
 
 void Scene::processActions(const InputState& input) {
@@ -242,7 +268,7 @@ void Scene::render(int windowWidth, int windowHeight) {
         V = m_camera.getViewMatrix();
     }
 
-    shaders.setVec3("ueye", m_camera.getPosition());
+    shaders.setVec3("ueye", glm::vec3(0.0f, 0.0f, 0.0f));  // In view space, camera is at origin
     setLights(P, V);
 
     // Get map dimensions
@@ -295,6 +321,9 @@ void Scene::render(int windowWidth, int windowHeight) {
     // Render spiderwebs
     renderSpiderwebs(P, V);
 
+    // Render torches
+    renderTorches(P, V);
+
     // Render flashlight (first person only)
     renderFlashlight(P, V);
 }
@@ -341,10 +370,63 @@ void Scene::setLights(glm::mat4 P, glm::mat4 V) {
         exitLight.c2 = 0.44f;   // Increased quadratic attenuation for faster falloff
         shaders.setLight("ulightP[1]", exitLight);
     } else {
-        // No exit sign, use default light
-        Light light1 = m_lightP[1];
-        light1.position = glm::vec3(V * glm::vec4(light1.position, 1.0f));
+        // No exit sign, disable light slot 1
+        Light light1;
+        light1.position = glm::vec3(0.0f);
+        light1.ambient  = glm::vec3(0.0f);
+        light1.diffuse  = glm::vec3(0.0f);
+        light1.specular = glm::vec3(0.0f);
+        light1.c0 = 1.0f; light1.c1 = 0.0f; light1.c2 = 0.0f;
         shaders.setLight("ulightP[1]", light1);
+    }
+
+    // Torch point lights (slots 2-11) - dim warm fire color for horror atmosphere
+    const auto& torches = m_torchManager.getTorches();
+    for (int i = 0; i < 10; i++) {
+        Light torchLight;
+        if (i < static_cast<int>(torches.size())) {
+            const Torch& torch = torches[i];
+            
+            // Calculate torch light position (at flame, matching renderTorches)
+            glm::vec3 torchPos;
+            torchPos.x = torch.gridPos.x * BLOCK_SIZE;
+            torchPos.y = 3.5f;  // Flame height
+            torchPos.z = torch.gridPos.y * BLOCK_SIZE;
+            
+            // Offset towards wall (matching renderTorches)
+            float wallOffset = BLOCK_SIZE * 0.45f;
+            if (torch.rotation == 0.0f) {
+                torchPos.z += wallOffset;
+            } else if (torch.rotation == 180.0f) {
+                torchPos.z -= wallOffset;
+            } else if (torch.rotation == 90.0f) {
+                torchPos.x -= wallOffset;
+            } else if (torch.rotation == 270.0f) {
+                torchPos.x += wallOffset;
+            }
+            
+            // Get flicker intensity for organic fire effect
+            float flicker = m_torchManager.getFlickerIntensity(i, m_gameTime);
+            
+            // Brighter warm fire color - more illumination
+            glm::vec3 fireColor = glm::vec3(0.7f, 0.3f, 0.1f) * flicker;
+            
+            torchLight.position = glm::vec3(V * glm::vec4(torchPos, 1.0f));
+            torchLight.ambient  = glm::vec3(0.02f, 0.008f, 0.002f) * flicker;
+            torchLight.diffuse  = fireColor;
+            torchLight.specular = glm::vec3(0.15f, 0.08f, 0.03f) * flicker;
+            torchLight.c0 = 1.0f;
+            torchLight.c1 = 0.14f;  // Lower attenuation = larger range
+            torchLight.c2 = 0.10f;  // Much slower falloff (~6-8 units)
+        } else {
+            // No torch for this slot, disable it
+            torchLight.position = glm::vec3(0.0f);
+            torchLight.ambient  = glm::vec3(0.0f);
+            torchLight.diffuse  = glm::vec3(0.0f);
+            torchLight.specular = glm::vec3(0.0f);
+            torchLight.c0 = 1.0f; torchLight.c1 = 0.0f; torchLight.c2 = 0.0f;
+        }
+        shaders.setLight("ulightP[" + std::to_string(i + 2) + "]", torchLight);
     }
 
     for (int i = 0; i < 2; i++) {
@@ -369,7 +451,7 @@ void Scene::drawObjectMat(Model& model, Material& material, glm::mat4 P, glm::ma
     model.renderModel(GL_FILL);
 }
 
-void Scene::drawObjectTex(Model& model, Textures& textures, glm::mat4 P, glm::mat4 V, glm::mat4 M, float alpha) {
+void Scene::drawObjectTex(Model& model, Textures& textures, glm::mat4 P, glm::mat4 V, glm::mat4 M, float alpha, bool useAlpha) {
     Shaders& shaders = m_resources.getShader();
     shaders.setMat4("uN", glm::transpose(glm::inverse(V * M)));
     shaders.setMat4("uM", V * M);
@@ -378,7 +460,23 @@ void Scene::drawObjectTex(Model& model, Textures& textures, glm::mat4 P, glm::ma
     shaders.setBool("uWithNormals", textures.normal != 0);
     shaders.setFloat("uAlpha", alpha);
     shaders.setTextures("utextures", textures);
-    if (textures.diffuse != 0) model.renderModel(GL_FILL);
+
+    if (textures.diffuse != 0) {
+        if (useAlpha) {
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glDepthMask(GL_FALSE);
+            glDisable(GL_CULL_FACE);
+        }
+
+        model.renderModel(GL_FILL);
+
+        if (useAlpha) {
+            glDepthMask(GL_TRUE);
+            glDisable(GL_BLEND);
+            glEnable(GL_CULL_FACE);
+        }
+    }
 }
 
 void Scene::drawTiledPlane(Model& model, Textures& tex, glm::mat4 P, glm::mat4 V,
@@ -738,4 +836,89 @@ void Scene::renderSpiderwebs(glm::mat4 P, glm::mat4 V) {
     
     // Re-enable face culling
     glEnable(GL_CULL_FACE);
+}
+
+void Scene::renderTorches(glm::mat4 P, glm::mat4 V) {
+    if (m_torchManager.getTorchCount() == 0) return;
+
+    Model& torchModel = m_resources.getModel("torch");
+    Model& planeModel = m_resources.getModel("plane");
+    Textures& texTorch = m_resources.getTextureGroup("torch");
+    Textures& texFlame = m_resources.getTextureGroup("flame");
+
+    for (size_t i = 0; i < m_torchManager.getTorches().size(); i++) {
+        const auto& torch = m_torchManager.getTorches()[i];
+        
+        // Calculate torch world position - offset towards wall based on rotation
+        glm::vec3 torchPos;
+        torchPos.x = torch.gridPos.x * BLOCK_SIZE;
+        torchPos.y = 3.2f;  // Higher mount position on wall
+        torchPos.z = torch.gridPos.y * BLOCK_SIZE;
+        
+        // Offset torch towards wall based on its facing direction
+        float wallOffset = BLOCK_SIZE * 0.45f;  // Close to wall
+        if (torch.rotation == 0.0f) {           // Facing north, mounted on south wall
+            torchPos.z += wallOffset;
+        } else if (torch.rotation == 180.0f) {  // Facing south, mounted on north wall
+            torchPos.z -= wallOffset;
+        } else if (torch.rotation == 90.0f) {   // Facing east, mounted on west wall
+            torchPos.x -= wallOffset;
+        } else if (torch.rotation == 270.0f) {  // Facing west, mounted on east wall
+            torchPos.x += wallOffset;
+        }
+
+        // Get model size to scale appropriately
+        glm::vec3 modelSize = torchModel.getSize();
+        
+        // Scale the model to reasonable size
+        float desiredHeight = 1.0f;  // Slightly smaller holder
+        float scale = desiredHeight / modelSize.y;
+        
+        // Create transformation matrix for holder
+        glm::mat4 M = glm::translate(I, torchPos);
+        // Rotate to face away from wall
+        M = glm::rotate(M, glm::radians(torch.rotation), glm::vec3(0.0f, 1.0f, 0.0f));
+        // Apply uniform scale
+        M = glm::scale(M, glm::vec3(scale, scale, scale));
+        // Center the model
+        M = glm::translate(M, -torchModel.getCenter());
+
+        // Draw the torch holder
+        drawObjectTex(torchModel, texTorch, P, V, M);
+
+        // Calculate flame position (at the torch cup/bowl area)
+        glm::vec3 flamePos = torchPos;
+        flamePos.y += 0.35f;  // At the cup of the torch
+        
+        // Offset flame slightly forward from wall (into the room)
+        float flameOffset = 0.1f;
+        if (torch.rotation == 0.0f) {
+            flamePos.z -= flameOffset;
+        } else if (torch.rotation == 180.0f) {
+            flamePos.z += flameOffset;
+        } else if (torch.rotation == 90.0f) {
+            flamePos.x += flameOffset;
+        } else if (torch.rotation == 270.0f) {
+            flamePos.x -= flameOffset;
+        }
+
+        // Render flame as vertical billboard (faces camera but stands upright)
+        glm::vec3 cameraPos = m_camera.getPosition();
+        glm::vec3 toCamera = glm::normalize(cameraPos - flamePos);
+        
+        // Calculate rotation to face camera (Y-axis billboard)
+        float angle = atan2(toCamera.x, toCamera.z);
+        
+        // Flame scale with slight flicker variation
+        float flicker = m_torchManager.getFlickerIntensity(i, m_gameTime);
+        float flameScale = 0.22f * (0.95f + flicker * 0.05f);  // Smaller flame
+        
+        glm::mat4 MFlame = glm::translate(I, flamePos);
+        MFlame = glm::rotate(MFlame, angle, glm::vec3(0.0f, 1.0f, 0.0f));  // Face camera horizontally
+        MFlame = glm::rotate(MFlame, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));  // Stand upright
+        MFlame = glm::scale(MFlame, glm::vec3(flameScale, flameScale, flameScale * 1.3f));  // Taller than wide (Z is now up)
+
+        // Draw flame with texture alpha blending enabled
+        drawObjectTex(planeModel, texFlame, P, V, MFlame, 0.0f, true);
+    }
 }

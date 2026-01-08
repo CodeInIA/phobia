@@ -35,6 +35,9 @@ void ResourceManager::loadModels() {
     // Emergency exit sign
     m_models["exitSign"].initModel("resources/models/emergency_escape_lighting.obj");
     
+    // Torch holder
+    m_models["torch"].initModel("resources/models/SM_ST_TorchHolder_LP.obj");
+    
     std::cout << "ResourceManager: Loaded " << m_models.size() << " models" << std::endl;
 }
 
@@ -78,6 +81,14 @@ void ResourceManager::loadTextures() {
     m_textures["exitSignDiffuse"].initTexture("resources/textures/emergency_escape_lighting/EmergencyExitLight.png");
     m_textures["exitSignSpecular"].initTexture("resources/textures/emergency_escape_lighting/metalnessMap1.png");
     m_textures["exitSignNormal"].initTexture("resources/textures/emergency_escape_lighting/normalMap1.png");
+
+    // Torch textures
+    m_textures["torchDiffuse"].initTexture("resources/textures/torch/SM_ST_TorchHolder_LP_lambert1_BaseColor.png");
+    m_textures["torchNormal"].initTexture("resources/textures/torch/SM_ST_TorchHolder_LP_lambert1_Normal.png");
+    m_textures["torchMetallic"].initTexture("resources/textures/torch/SM_ST_TorchHolder_LP_lambert1_Metallic.png");
+    m_textures["torchRoughness"].initTexture("resources/textures/torch/SM_ST_TorchHolder_LP_lambert1_Roughness.png");
+    m_textures["torchAmbient"].initTexture("resources/textures/torch/Ambient.png");
+    m_textures["flame"].initTexture("resources/textures/torch/Flame.png");
 
     std::cout << "ResourceManager: Loaded " << m_textures.size() << " textures" << std::endl;
 }
@@ -162,6 +173,22 @@ void ResourceManager::setupTextureGroups() {
     texExitSign.emissive  = m_textures["exitSignDiffuse"].getTexture();  // Use diffuse as emissive for glowing effect
     texExitSign.normal    = m_textures["exitSignNormal"].getTexture();
     texExitSign.shininess = 32.0f;
+
+    // Torch texture group
+    Textures& texTorch = m_textureGroups["torch"];
+    texTorch.diffuse   = m_textures["torchDiffuse"].getTexture();
+    texTorch.specular  = m_textures["torchMetallic"].getTexture();
+    texTorch.emissive  = 0;  // No emissive for holder, fire light comes from point light
+    texTorch.normal    = m_textures["torchNormal"].getTexture();
+    texTorch.shininess = 24.0f;
+
+    // Flame texture group (emissive, self-illuminated)
+    Textures& texFlame = m_textureGroups["flame"];
+    texFlame.diffuse   = m_textures["flame"].getTexture();
+    texFlame.specular  = 0;
+    texFlame.emissive  = m_textures["flame"].getTexture();  // Use diffuse as emissive for glow
+    texFlame.normal    = 0;
+    texFlame.shininess = 1.0f;
 
     std::cout << "ResourceManager: Created " << m_textureGroups.size() << " texture groups" << std::endl;
 }
