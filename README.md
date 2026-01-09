@@ -5,6 +5,10 @@
 
 ---
 
+![Portada del Juego](./screenshots/portada.jpg)
+
+---
+
 ## Descripción
 
 **Phobia** es un juego de terror en primera persona desarrollado en C++ utilizando OpenGL moderno (Core Profile 3.3). El jugador debe escapar de un laberinto oscuro plagado de peligros mientras se guía únicamente con una linterna.
@@ -54,27 +58,23 @@ phobia/
 │   ├── ExitSignManager.cpp/h   # Señales de emergencia
 │   └── SpiderwebManager.cpp/h  # Decoración ambiental
 ├── libraries/                  # Librerías externas
-│   ├── glew/
+│   ├── glew/                   # OpenGL Extension Wrangler
 │   │   ├── include/
-│   │   ├── lib32/              # Librerías 32-bit
-│   │   └── lib64/              # Librerías 64-bit
-│   ├── glfw/
+│   │   └── lib/
+│   ├── glfw/                   # Framework de ventanas
 │   │   ├── include/
-│   │   ├── lib32/
-│   │   └── lib64/
-│   ├── glm/
-│   ├── assimp/
+│   │   └── lib/
+│   ├── glm/                    # OpenGL Mathematics
+│   │   └── include/
+│   ├── assimp/                 # Asset Import Library
 │   │   ├── include/
-│   │   ├── lib32/
-│   │   └── lib64/
-│   ├── freeimage/
+│   │   └── lib/
+│   ├── freeimage/              # Librería de imágenes
 │   │   ├── include/
-│   │   ├── lib32/
-│   │   └── lib64/
-│   ├── openal-soft-1.25.0-bin/
-│   │   └── libs/Win32/ Win64/
-│   ├── dlls32/                 # DLLs para compilador 32-bit
-│   └── dlls64/                 # DLLs para compilador 64-bit
+│   │   └── lib/
+│   ├── openal-soft-1.25.0-bin/ # Audio 3D
+│   │   └── libs/
+│   └── dlls/                   # DLLs necesarias
 ├── binary/                     # Ejecutable y recursos
 │   └── resources/
 │       ├── models/             # Modelos 3D y mapa
@@ -95,17 +95,6 @@ phobia/
 ---
 
 ## Compilación
-
-### Detección Automática de Arquitectura
-
-El sistema de compilación **detecta automáticamente** si el compilador es de **32-bit o 64-bit** y selecciona las librerías correspondientes:
-
-| Arquitectura | Puntero | Carpeta de Librerías | Carpeta de DLLs |
-|--------------|---------|----------------------|-----------------|
-| **32-bit** | 4 bytes | `lib32/` | `dlls32/` |
-| **64-bit** | 8 bytes | `lib64/` | `dlls64/` |
-
-Esta detección se realiza mediante `CMAKE_SIZEOF_VOID_P` en CMake, permitiendo compilar el proyecto tanto con compiladores de 32-bit (MinGW32) como de 64-bit (MSYS2 UCRT64, MSVC x64) sin necesidad de modificar la configuración.
 
 ### Windows (Visual Studio / MSVC)
 
@@ -241,6 +230,8 @@ El mapa se carga desde `map.cub`, un archivo de texto donde cada carácter repre
 | `D` | Derecha |
 | `Ratón` | Girar cámara |
 | `E` | Interactuar (abrir puertas) |
+| `F` | Apagar/Encender linterna |
+| `U` | Abrir/Cerrar minimapa |
 | `ESC` | Salir del juego |
 
 ---

@@ -4,8 +4,8 @@
 
 ---
 
-![Portada del Juego](./screenshots/portada.png)
-*[Insertar captura de la pantalla inicial aquí]*
+![Portada del Juego](./screenshots/portada.jpg)
+
 
 ---
 
@@ -55,6 +55,8 @@ Para lograrlo deberás:
 | Tecla | Acción |
 |:-----:|--------|
 | **E** | Interactuar (abrir puertas cercanas) |
+| **F** | Apagar/Encender la linterna |
+| **U** | Abrir/Cerrar minimapa |
 | **ESC** | Salir del juego |
 
 ---
@@ -63,15 +65,14 @@ Para lograrlo deberás:
 
 Tu linterna es tu **única fuente de luz** en este laberinto de pesadilla.
 
-![Linterna en acción](./screenshots/linterna.png)
-*[Insertar captura mostrando la linterna iluminando un pasillo]*
+![Linterna en acción](./screenshots/linterna.jpg)
 
 ### Características:
-- **Siempre encendida**: No te preocupes por las baterías
+- **Control manual**: Puedes encenderla y apagarla con la tecla **F**
 - **Apunta donde miras**: La luz sigue la dirección de tu vista
 - **Movimiento realista**: Se balancea sutilmente mientras caminas
 
-> 💡 **Consejo**: Mueve lentamente el ratón para inspeccionar las paredes y encontrar puertas ocultas en la oscuridad.
+> 💡 **Consejo**: Mueve lentamente el ratón para inspeccionar las paredes y encontrar puertas ocultas en la oscuridad. Apaga la linterna en momentos de calma para añadir tensión a la experiencia.
 
 ---
 
@@ -79,8 +80,7 @@ Tu linterna es tu **única fuente de luz** en este laberinto de pesadilla.
 
 A lo largo del laberinto encontrarás **puertas cerradas** que bloquean tu camino.
 
-![Puerta cerrada](./screenshots/puerta_cerrada.png)
-*[Insertar captura de una puerta cerrada]*
+![Puerta cerrada](./screenshots/puerta_cerrada.jpg)
 
 ### Cómo abrir una puerta:
 
@@ -89,8 +89,7 @@ A lo largo del laberinto encontrarás **puertas cerradas** que bloquean tu camin
 3. **Presiona E** para abrirla
 4. La puerta se abrirá girando 90 grados
 
-![Puerta abierta](./screenshots/puerta_abierta.png)
-*[Insertar captura de la puerta abriéndose]*
+![Puerta abierta](./screenshots/puerta_abierta.jpg)
 
 > ⚠️ **Atención**: Solo puedes interactuar con puertas cuando estás lo suficientemente cerca. Si presionas E y no pasa nada, acércate más.
 
@@ -100,8 +99,7 @@ A lo largo del laberinto encontrarás **puertas cerradas** que bloquean tu camin
 
 El laberinto esconde **trampas mortales**: enormes cuchillas que oscilan de lado a lado, cortando todo a su paso.
 
-![Péndulo oscilante](./screenshots/pendulo.png)
-*[Insertar captura del péndulo en movimiento]*
+![Péndulo oscilante](./screenshots/pendulo.jpg)
 
 ### Cómo sobrevivir:
 
@@ -127,8 +125,7 @@ El laberinto es oscuro y confuso por diseño. Aquí tienes algunos consejos:
 
 3. **Busca señales de salida**: Las luces de emergencia te guiarán hacia la salida.
 
-![Señal de salida](./screenshots/senal_salida.png)
-*[Insertar captura de una señal de emergencia]*
+![Señal de salida](./screenshots/senal_salida.jpg)
 
 4. **Escucha**: El sonido ambiente puede darte pistas sobre lo que hay adelante.
 
@@ -138,36 +135,23 @@ El laberinto es oscuro y confuso por diseño. Aquí tienes algunos consejos:
 
 Cuando encuentres la salida, lo sabrás. Una luz diferente te espera al final del laberinto.
 
-![Zona de salida](./screenshots/salida.png)
-*[Insertar captura de la zona de salida/victoria]*
+![Zona de salida](./screenshots/victoria.jpg)
 
 > 🎉 **¡Felicidades!** Si llegas hasta aquí, habrás completado **Phobia** y escapado del laberinto de terror.
 
 ---
 
-## 🖼️ Galería de Capturas
-
-### Atmósfera del Juego
-
-| Descripción | Captura |
-|-------------|---------|
-| Vista inicial del laberinto | *[Insertar captura aquí]* |
-| Pasillo oscuro con linterna | *[Insertar captura aquí]* |
-| Encuentro con un péndulo | *[Insertar captura aquí]* |
-| Puerta de salida de emergencia | *[Insertar captura aquí]* |
-
----
 
 ## ❓ Preguntas Frecuentes
 
 ### ¿Puedo morir en el juego?
 Los péndulos son peligrosos. Evítalos a toda costa.
 
-### ¿Hay un mapa?
-No. La desorientación es parte de la experiencia de terror. Confía en tu instinto y tu linterna.
-
 ### ¿La linterna se puede apagar?
-No, la linterna siempre está encendida. Es tu única compañera en la oscuridad.
+Sí, puedes apagarla y encenderla presionando la tecla **F**. Esto te permite controlar cuándo usar la luz y cuándo adentrarte en la oscuridad total.
+
+### ¿Hay un minimapa?
+Sí, puedes activar un minimapa presionando la tecla **U** para ayudarte a orientarte en el laberinto.
 
 ### ¿Cuánto dura el juego?
 Depende de tu habilidad para orientarte. Una partida típica dura entre 5 y 15 minutos.
@@ -197,8 +181,7 @@ Desarrollado con 💀 y mucho café
 
 *¿Te atreves a entrar?*
 
-![Logo Phobia](./screenshots/logo.png)
-*[Insertar logo del juego aquí]*
+
 
 ---
 
