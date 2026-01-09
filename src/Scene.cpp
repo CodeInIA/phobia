@@ -15,7 +15,13 @@ Scene::Scene(ResourceManager& resources)
     , m_topViewMode(false)
     , m_walkTime(0.0f)
     , m_isWalking(false)
+    , m_lastFootstepTime(0.0f)
 {
+    // Initialize audio system
+    if (m_audioManager.init()) {
+        m_audioManager.loadSounds("resources/audios");
+    }
+
     // Initialize lights - PITCH BLACK for horror atmosphere
     // Only torches and flashlight provide light
     m_lightG.ambient = glm::vec3(0.0f, 0.0f, 0.0f);  // No ambient light
@@ -117,6 +123,15 @@ void Scene::loadMap(const std::string& filename) {
                     m_torchManager.addTorch(glm::ivec2(colIndex, rowIndex));
                     line[colIndex] = '0';  // Replace with empty space for rendering
                 }
+                // Detect baby sound source - 'B'
+                if (line[colIndex] == 'B') {
+                    m_babyPosition.x = colIndex * BLOCK_SIZE;
+                    m_babyPosition.y = 0.0f;  // On the floor
+                    m_babyPosition.z = rowIndex * BLOCK_SIZE;
+                    m_babyRotation = 270.0f;  // Face right (towards +X where door is)
+                    line[colIndex] = '0';  // Replace with empty space for rendering
+                    std::cout << "Baby doll at: (" << m_babyPosition.x << ", " << m_babyPosition.z << ")" << std::endl;
+                }
             }
             m_mapLevel.push_back(line);
             rowIndex++;
@@ -126,6 +141,21 @@ void Scene::loadMap(const std::string& filename) {
 
     // Calculate door orientations based on adjacent walls
     m_doorManager.calculateOrientations(m_mapLevel);
+
+    // Find the door closest to baby position for flicker trigger
+    float closestDist = 999999.0f;
+    for (auto& door : m_doorManager.getDoors()) {
+        glm::vec3 doorWorldPos(door.gridPos.x * BLOCK_SIZE, 0.0f, door.gridPos.y * BLOCK_SIZE);
+        float dist = glm::distance(glm::vec2(doorWorldPos.x, doorWorldPos.z), 
+                                   glm::vec2(m_babyPosition.x, m_babyPosition.z));
+        if (dist < closestDist) {
+            closestDist = dist;
+            m_babyDoor = &door;
+        }
+    }
+    if (m_babyDoor) {
+        std::cout << "Baby door at grid: (" << m_babyDoor->gridPos.x << ", " << m_babyDoor->gridPos.y << ")" << std::endl;
+    }
 
     // Calculate pendulum orientations based on adjacent walls
     m_pendulumManager.calculateOrientations(m_mapLevel);
@@ -167,6 +197,73 @@ void Scene::update(float deltaTime, InputManager& input) {
 
     // Update game time for torch flicker
     m_gameTime += deltaTime;
+
+    // Update flashlight flicker effect
+    if (m_flickerActive) {
+        m_flickerTimer += deltaTime;
+        
+        if (m_flickerPhase == 0) {
+            // Flickering phase - rapid on/off for ~1 second
+            if (m_flickerTimer < 1.0f) {
+                // Flicker every ~0.08 seconds with some randomness
+                int flickerState = static_cast<int>(m_flickerTimer / 0.08f);
+                m_flashlightOn = (flickerState % 2 == 0);
+            } else {
+                // Move to blackout phase
+                m_flickerPhase = 1;
+                m_flickerTimer = 0.0f;
+                m_flashlightOn = false;
+            }
+        } else if (m_flickerPhase == 1) {
+            // Blackout phase - off for 1.5 seconds
+            m_flashlightOn = false;
+            if (m_flickerTimer >= 1.5f) {
+                // Done - turn back on
+                m_flickerPhase = 2;
+                m_flashlightOn = true;
+                m_flickerActive = false;
+            }
+        }
+    }
+
+    // Update audio listener position
+    m_audioManager.updateListener(m_camera.getPosition(), m_camera.getFront(), m_camera.getUp());
+
+    // Update fire ambient based on distance to nearest torch
+    const auto& torches = m_torchManager.getTorches();
+    float nearestDistance = 999999.0f;
+    glm::vec3 playerPos = m_camera.getPosition();
+
+    for (const auto& torch : torches) {
+        // Calculate torch world position (matching setLights logic)
+        glm::vec3 torchPos;
+        torchPos.x = torch.gridPos.x * BLOCK_SIZE;
+        torchPos.y = 3.5f;  // Flame height
+        torchPos.z = torch.gridPos.y * BLOCK_SIZE;
+
+        // Offset towards wall based on rotation
+        float wallOffset = BLOCK_SIZE * 0.45f;
+        if (torch.rotation == 0.0f) {
+            torchPos.z += wallOffset;
+        } else if (torch.rotation == 180.0f) {
+            torchPos.z -= wallOffset;
+        } else if (torch.rotation == 90.0f) {
+            torchPos.x -= wallOffset;
+        } else if (torch.rotation == 270.0f) {
+            torchPos.x += wallOffset;
+        }
+
+        float dist = glm::length(playerPos - torchPos);
+        if (dist < nearestDistance) {
+            nearestDistance = dist;
+        }
+    }
+
+    m_audioManager.updateFireAmbient(nearestDistance);
+
+    // Update baby crying based on distance to source
+    float babyDistance = glm::length(playerPos - m_babyPosition);
+    m_audioManager.updateBabyCrying(babyDistance);
 }
 
 void Scene::processActions(const InputState& input) {
@@ -177,7 +274,18 @@ void Scene::processActions(const InputState& input) {
         toggleTopView();
     }
     if (input.interact) {
-        m_doorManager.toggleNearestDoor(m_camera.getPosition(), DOOR_INTERACTION_DISTANCE);
+        Door* toggledDoor = m_doorManager.toggleNearestDoor(m_camera.getPosition(), DOOR_INTERACTION_DISTANCE);
+        if (toggledDoor) {
+            m_audioManager.playDoorSound();
+
+            // Check if this is THE baby door - trigger flicker
+            if (toggledDoor == m_babyDoor && !m_flickerActive) {
+                std::cout << "Baby door triggered - starting flicker!" << std::endl;
+                m_flickerActive = true;
+                m_flickerTimer = 0.0f;
+                m_flickerPhase = 0;
+            }
+        }
     }
 }
 
@@ -196,6 +304,12 @@ void Scene::processMovement(float deltaTime, const InputState& input) {
         m_isWalking = true;
         m_walkTime += deltaTime;
 
+        // Play footstep sound at regular intervals
+        if (m_walkTime - m_lastFootstepTime >= FOOTSTEP_INTERVAL) {
+            m_audioManager.playFootstep();
+            m_lastFootstepTime = m_walkTime;
+        }
+
         // Check collision separately for X and Z axes (sliding along walls)
         bool collX = checkCollision(glm::vec3(nextPos.x, currentPos.y, currentPos.z));
         bool collZ = checkCollision(glm::vec3(currentPos.x, currentPos.y, nextPos.z));
@@ -204,6 +318,7 @@ void Scene::processMovement(float deltaTime, const InputState& input) {
         if (!collZ) m_camera.setPositionZ(nextPos.z);
     } else {
         m_isWalking = false;
+        m_lastFootstepTime = m_walkTime;  // Reset so next step plays immediately
     }
 
     // Lock Y position to player height
@@ -323,6 +438,9 @@ void Scene::render(int windowWidth, int windowHeight) {
 
     // Render torches
     renderTorches(P, V);
+
+    // Render baby doll
+    renderBabyDoll(P, V);
 
     // Render flashlight (first person only)
     renderFlashlight(P, V);
@@ -921,4 +1039,35 @@ void Scene::renderTorches(glm::mat4 P, glm::mat4 V) {
         // Draw flame with texture alpha blending enabled
         drawObjectTex(planeModel, texFlame, P, V, MFlame, 0.0f, true);
     }
+}
+
+void Scene::renderBabyDoll(glm::mat4 P, glm::mat4 V) {
+    Model& babyModel = m_resources.getModel("babyDoll");
+    Textures& texBaby = m_resources.getTextureGroup("babyDoll");
+
+    // Get model size for scaling
+    glm::vec3 modelSize = babyModel.getSize();
+    glm::vec3 modelCenter = babyModel.getCenter();
+    
+    // Scale to visible size (about 2.5 units long when lying down)
+    float desiredLength = 2.5f;
+    float scale = desiredLength / modelSize.y;  // Y is height when standing, becomes length when lying
+    
+    // Position at baby location, at floor level
+    glm::mat4 M = glm::translate(I, m_babyPosition);
+    M = glm::translate(M, glm::vec3(0.0f, 0.5f, 0.0f));  // Raise to floor level
+    
+    // First rotate to lay flat on the floor (rotate -90 around X so head points forward)
+    M = glm::rotate(M, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    
+    // Then rotate around Z (which is now up) to face the door - add 180 to flip direction
+    M = glm::rotate(M, glm::radians(m_babyRotation + 180.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    
+    // Scale the model
+    M = glm::scale(M, glm::vec3(scale, scale, scale));
+    
+    // Center the model
+    M = glm::translate(M, glm::vec3(-modelCenter.x, -modelCenter.y, -modelCenter.z));
+
+    drawObjectTex(babyModel, texBaby, P, V, M);
 }

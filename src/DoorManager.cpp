@@ -81,14 +81,14 @@ Door* DoorManager::findNearestDoor(glm::vec3 worldPos, float maxDistance) {
     return nearestDoor;
 }
 
-bool DoorManager::toggleNearestDoor(glm::vec3 worldPos, float maxDistance) {
+Door* DoorManager::toggleNearestDoor(glm::vec3 worldPos, float maxDistance) {
     Door* door = findNearestDoor(worldPos, maxDistance);
     if (door) {
         door->isOpen = !door->isOpen;
         std::cout << "Door " << (door->isOpen ? "opened" : "closed") << std::endl;
-        return true;
+        return door;
     }
-    return false;
+    return nullptr;
 }
 
 bool DoorManager::checkCollision(glm::vec3 position, float playerRadius) const {

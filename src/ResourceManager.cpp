@@ -38,6 +38,9 @@ void ResourceManager::loadModels() {
     // Torch holder
     m_models["torch"].initModel("resources/models/torch.obj");
     
+    // Baby doll
+    m_models["babyDoll"].initModel("resources/models/baby_sliced.obj");
+    
     std::cout << "ResourceManager: Loaded " << m_models.size() << " models" << std::endl;
 }
 
@@ -89,6 +92,10 @@ void ResourceManager::loadTextures() {
     m_textures["torchRoughness"].initTexture("resources/textures/torch/torch_Roughness.png");
     m_textures["torchAmbient"].initTexture("resources/textures/torch/torch_Ambient.png");
     m_textures["flame"].initTexture("resources/textures/torch/Flame.png");
+
+    // Baby doll textures
+    m_textures["babyDiffuse"].initTexture("resources/textures/doll/baby_sliced01.jpg");
+    m_textures["babyNormal"].initTexture("resources/textures/doll/NormalMap_1.jpg");
 
     std::cout << "ResourceManager: Loaded " << m_textures.size() << " textures" << std::endl;
 }
@@ -189,6 +196,14 @@ void ResourceManager::setupTextureGroups() {
     texFlame.emissive  = m_textures["flame"].getTexture();  // Use diffuse as emissive for glow
     texFlame.normal    = 0;
     texFlame.shininess = 1.0f;
+
+    // Baby doll texture group
+    Textures& texBaby = m_textureGroups["babyDoll"];
+    texBaby.diffuse   = m_textures["babyDiffuse"].getTexture();
+    texBaby.specular  = 0;
+    texBaby.emissive  = 0;
+    texBaby.normal    = m_textures["babyNormal"].getTexture();
+    texBaby.shininess = 16.0f;
 
     std::cout << "ResourceManager: Created " << m_textureGroups.size() << " texture groups" << std::endl;
 }

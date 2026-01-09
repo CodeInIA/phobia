@@ -50,7 +50,8 @@ public:
     Door* findNearestDoor(glm::vec3 worldPos, float maxDistance);
 
     // Toggle the nearest door to the given position
-    bool toggleNearestDoor(glm::vec3 worldPos, float maxDistance);
+    // Returns pointer to toggled door, or nullptr if none
+    Door* toggleNearestDoor(glm::vec3 worldPos, float maxDistance);
 
     // Get all doors (for rendering)
     const std::vector<Door>& getDoors() const { return m_doors; }
