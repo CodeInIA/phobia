@@ -266,8 +266,8 @@ void Scene::render(int windowWidth, int windowHeight) {
     if (m_topViewMode) {
         // Top-down view showing entire maze
         float tileSize = BLOCK_SIZE;
-        int gridSizeX = 20;
-        int gridSizeZ = 18;
+        int gridSizeX = static_cast<int>(m_mapLevel.empty() ? 16 : m_mapLevel[0].size());
+        int gridSizeZ = static_cast<int>(m_mapLevel.size());
 
         float mapCenterX = (gridSizeX * tileSize) / 2.0f;
         float mapCenterZ = (gridSizeZ * tileSize) / 2.0f;
@@ -275,7 +275,7 @@ void Scene::render(int windowWidth, int windowHeight) {
         float mapWidth = gridSizeX * tileSize;
         float mapHeight = gridSizeZ * tileSize;
         float maxDimension = glm::max(mapWidth / aspect, mapHeight);
-        float cameraHeight = maxDimension / (2.0f * tan(glm::radians(30.0f)));
+        float cameraHeight = maxDimension / (2.0f * tan(glm::radians(30.0f))) * 1.15f;  // 15% more distance to show margins
 
         glm::vec3 topViewPos = glm::vec3(mapCenterX, cameraHeight, mapCenterZ);
         glm::vec3 topViewTarget = glm::vec3(mapCenterX, 0.0f, mapCenterZ);
@@ -345,6 +345,20 @@ void Scene::render(int windowWidth, int windowHeight) {
 
     // Render flashlight (first person only)
     renderFlashlight(P, V);
+
+    // Render player position indicator in top view
+    if (m_topViewMode) {
+        glm::vec3 playerPos = m_camera.getPosition();
+        glm::vec3 spherePos = playerPos;
+        spherePos.y = BLOCK_HEIGHT / 2.0f;  // Above the floor
+        
+        float sphereRadius = 0.5f;
+        glm::mat4 M = glm::translate(I, spherePos);
+        M = glm::scale(M, glm::vec3(sphereRadius, sphereRadius, sphereRadius));
+        
+        // Draw white sphere to indicate player
+        drawObjectMat(cubeModel, m_mluz, P, V, M);
+    }
 }
 
 void Scene::setLights(glm::mat4 P, glm::mat4 V) {
