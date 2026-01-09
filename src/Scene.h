@@ -13,6 +13,7 @@
 #include "TorchManager.h"
 #include "ResourceManager.h"
 #include "InputManager.h"
+#include "AudioManager.h"
 #include "Shaders.h"
 
 class Scene {
@@ -59,6 +60,7 @@ private:
     void renderPendulums(glm::mat4 P, glm::mat4 V);
     void renderSpiderwebs(glm::mat4 P, glm::mat4 V);
     void renderTorches(glm::mat4 P, glm::mat4 V);
+    void renderBabyDoll(glm::mat4 P, glm::mat4 V);
     void renderFlashlight(glm::mat4 P, glm::mat4 V);
     
     // Flashlight helpers
@@ -92,6 +94,13 @@ private:
     // Torch system
     TorchManager m_torchManager;
 
+    // Audio system
+    AudioManager m_audioManager;
+    float m_lastFootstepTime = 0.0f;  // Track when last footstep played
+    glm::vec3 m_babyPosition;         // World position of baby crying sound source
+    float m_babyRotation = 0.0f;      // Baby doll facing direction
+    Door* m_babyDoor = nullptr;       // The door closest to baby (triggers flicker)
+
     // Lights
     Light m_lightG;           // Global ambient
     Light m_lightD[1];        // Directional lights
@@ -107,6 +116,11 @@ private:
     float m_gameTime = 0.0f;  // Total elapsed time for torch flicker
     bool m_isWalking = false;
 
+    // Flashlight flicker state (triggered by baby door)
+    bool m_flickerActive = false;
+    float m_flickerTimer = 0.0f;
+    int m_flickerPhase = 0;  // 0=flickering, 1=off, 2=done
+
     // Constants
     static constexpr float BLOCK_SIZE = 4.0f;
     static constexpr float BLOCK_HEIGHT = 5.0f;
@@ -114,6 +128,7 @@ private:
     static constexpr float PLAYER_RADIUS = 0.4f;
     static constexpr float WALK_SPEED = 7.0f;
     static constexpr float DOOR_INTERACTION_DISTANCE = 6.0f;
+    static constexpr float FOOTSTEP_INTERVAL = 0.32f;  // Time between footsteps
 };
 
 #endif // SCENE_H
