@@ -36,7 +36,7 @@ void ResourceManager::loadModels() {
     m_models["exitSign"].initModel("resources/models/emergency_escape_lighting.obj");
     
     // Torch holder
-    m_models["torch"].initModel("resources/models/SM_ST_TorchHolder_LP.obj");
+    m_models["torch"].initModel("resources/models/torch.obj");
     
     std::cout << "ResourceManager: Loaded " << m_models.size() << " models" << std::endl;
 }
@@ -83,11 +83,11 @@ void ResourceManager::loadTextures() {
     m_textures["exitSignNormal"].initTexture("resources/textures/emergency_escape_lighting/normalMap1.png");
 
     // Torch textures
-    m_textures["torchDiffuse"].initTexture("resources/textures/torch/SM_ST_TorchHolder_LP_lambert1_BaseColor.png");
-    m_textures["torchNormal"].initTexture("resources/textures/torch/SM_ST_TorchHolder_LP_lambert1_Normal.png");
-    m_textures["torchMetallic"].initTexture("resources/textures/torch/SM_ST_TorchHolder_LP_lambert1_Metallic.png");
-    m_textures["torchRoughness"].initTexture("resources/textures/torch/SM_ST_TorchHolder_LP_lambert1_Roughness.png");
-    m_textures["torchAmbient"].initTexture("resources/textures/torch/Ambient.png");
+    m_textures["torchDiffuse"].initTexture("resources/textures/torch/torch_BaseColor.png");
+    m_textures["torchNormal"].initTexture("resources/textures/torch/torch_Normal.png");
+    m_textures["torchMetallic"].initTexture("resources/textures/torch/torch_Metallic.png");
+    m_textures["torchRoughness"].initTexture("resources/textures/torch/torch_Roughness.png");
+    m_textures["torchAmbient"].initTexture("resources/textures/torch/torch_Ambient.png");
     m_textures["flame"].initTexture("resources/textures/torch/Flame.png");
 
     std::cout << "ResourceManager: Loaded " << m_textures.size() << " textures" << std::endl;
