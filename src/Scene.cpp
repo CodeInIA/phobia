@@ -17,6 +17,12 @@ Scene::Scene(ResourceManager& resources)
     , m_walkTime(0.0f)
     , m_isWalking(false)
     , m_lastFootstepTime(0.0f)
+    , m_flickerActive(false)
+    , m_flickerTimer(0.0f)
+    , m_flickerPhase(0)
+    , m_gameTime(0.0f)
+    , m_babyRotation(0.0f)
+    , m_babyDoor(nullptr)
 {
     // Initialize audio system
     if (m_audioManager.init()) {
@@ -129,6 +135,7 @@ void Scene::loadMap(const std::string& filename) {
                 if (line[colIndex] == 'L') {
                     m_exitRoomManager.addExitRoom(glm::ivec2(colIndex, rowIndex));
                     line[colIndex] = '0';  // Replace with empty space for rendering
+                }
                 // Detect baby sound source - 'B'
                 if (line[colIndex] == 'B') {
                     m_babyPosition.x = colIndex * BLOCK_SIZE;
