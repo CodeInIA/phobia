@@ -90,6 +90,12 @@ void ResourceManager::loadTextures() {
     m_textures["torchAmbient"].initTexture("resources/textures/torch/torch_Ambient.png");
     m_textures["flame"].initTexture("resources/textures/torch/Flame.png");
 
+    // Exit landscape textures (for exit rooms)
+    m_textures["exitLandscapeDiffuse"].initTexture("resources/textures/exit_landscape/exit_landscape_diffuse.png");
+    m_textures["exitLandscapeNormal"].initTexture("resources/textures/exit_landscape/exit_landscape_normal.png");
+    m_textures["exitLandscapeSpecular"].initTexture("resources/textures/exit_landscape/exit_landscape_specular.png");
+    m_textures["exitText"].initTexture("resources/textures/exit_landscape/exit_text.png");
+
     std::cout << "ResourceManager: Loaded " << m_textures.size() << " textures" << std::endl;
 }
 
@@ -189,6 +195,22 @@ void ResourceManager::setupTextureGroups() {
     texFlame.emissive  = m_textures["flame"].getTexture();  // Use diffuse as emissive for glow
     texFlame.normal    = 0;
     texFlame.shininess = 1.0f;
+
+    // Exit landscape texture group (for exit room walls)
+    Textures& texExitLandscape = m_textureGroups["exitLandscape"];
+    texExitLandscape.diffuse   = m_textures["exitLandscapeDiffuse"].getTexture();
+    texExitLandscape.specular  = m_textures["exitLandscapeSpecular"].getTexture();
+    texExitLandscape.emissive  = 0;
+    texExitLandscape.normal    = m_textures["exitLandscapeNormal"].getTexture();
+    texExitLandscape.shininess = 32.0f;
+
+    // Exit text texture group (for exit sign plane)
+    Textures& texExitText = m_textureGroups["exitText"];
+    texExitText.diffuse   = m_textures["exitText"].getTexture();
+    texExitText.specular  = 0;
+    texExitText.emissive  = m_textures["exitText"].getTexture();  // Self-illuminated
+    texExitText.normal    = 0;
+    texExitText.shininess = 1.0f;
 
     std::cout << "ResourceManager: Created " << m_textureGroups.size() << " texture groups" << std::endl;
 }

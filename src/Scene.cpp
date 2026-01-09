@@ -1,5 +1,6 @@
 #include "Scene.h"
 #include "ExitSignManager.h"
+#include "ExitRoomManager.h"
 #include "SpiderwebManager.h"
 #include "TorchManager.h"
 #include <fstream>
@@ -77,6 +78,7 @@ void Scene::loadMap(const std::string& filename) {
     m_mapLevel.clear();
     m_doorManager.clear();
     m_exitSignManager.clear();
+    m_exitRoomManager.clear();
     m_pendulumManager.clear();
     m_spiderwebManager.clear();
     m_torchManager.clear();
@@ -117,6 +119,11 @@ void Scene::loadMap(const std::string& filename) {
                     m_torchManager.addTorch(glm::ivec2(colIndex, rowIndex));
                     line[colIndex] = '0';  // Replace with empty space for rendering
                 }
+                // Detect exit rooms - 'L'
+                if (line[colIndex] == 'L') {
+                    m_exitRoomManager.addExitRoom(glm::ivec2(colIndex, rowIndex));
+                    line[colIndex] = '0';  // Replace with empty space for rendering
+                }
             }
             m_mapLevel.push_back(line);
             rowIndex++;
@@ -136,9 +143,13 @@ void Scene::loadMap(const std::string& filename) {
     // Calculate torch orientations based on adjacent walls
     m_torchManager.calculateOrientations(m_mapLevel);
 
+    // Find exit doors for exit rooms
+    m_exitRoomManager.findExitDoors(m_mapLevel);
+
     std::cout << "Map loaded: " << m_mapLevel.size() << " rows, " 
               << m_doorManager.getDoorCount() << " doors, "
               << m_exitSignManager.getExitSigns().size() << " exit signs, "
+              << m_exitRoomManager.getExitRoomCount() << " exit rooms, "
               << m_pendulumManager.getPendulumCount() << " pendulums, "
               << m_spiderwebManager.getSpiderwebCount() << " spiderwebs, "
               << m_torchManager.getTorchCount() << " torches" << std::endl;
@@ -232,6 +243,11 @@ bool Scene::checkCollision(glm::vec3 newPos) {
         return true;
     }
 
+    // Check exit room collisions
+    if (m_exitRoomManager.checkCollision(newPos, PLAYER_RADIUS)) {
+        return true;
+    }
+
     // Check pendulum collisions
     return m_pendulumManager.checkCollision(newPos, PLAYER_RADIUS);
 }
@@ -315,6 +331,9 @@ void Scene::render(int windowWidth, int windowHeight) {
     // Render exit signs
     renderExitSigns(P, V);
 
+    // Render exit rooms
+    renderExitRooms(P, V);
+
     // Render pendulums
     renderPendulums(P, V);
 
@@ -332,8 +351,28 @@ void Scene::setLights(glm::mat4 P, glm::mat4 V) {
     Shaders& shaders = m_resources.getShader();
 
     Light modifiedLightG = m_lightG;
+    
+    // Check if player is inside an exit room for special lighting
+    bool isInExitRoom = false;
+    glm::vec3 playerPos = m_camera.getPosition();
+    for (const auto& room : m_exitRoomManager.getExitRooms()) {
+        glm::vec3 roomCenter;
+        roomCenter.x = room.gridPos.x * BLOCK_SIZE;
+        roomCenter.z = room.gridPos.y * BLOCK_SIZE;
+        
+        float halfBlock = BLOCK_SIZE / 2.0f;
+        if (std::abs(playerPos.x - roomCenter.x) < halfBlock &&
+            std::abs(playerPos.z - roomCenter.z) < halfBlock) {
+            isInExitRoom = true;
+            break;
+        }
+    }
+    
     if (m_topViewMode) {
         modifiedLightG.ambient = glm::vec3(0.6f, 0.6f, 0.65f);
+    } else if (isInExitRoom) {
+        // Bright lighting in exit rooms - very bright ambient
+        modifiedLightG.ambient = glm::vec3(0.8f, 0.8f, 0.85f);
     }
     shaders.setLight("ulightG", modifiedLightG);
 
@@ -343,6 +382,11 @@ void Scene::setLights(glm::mat4 P, glm::mat4 V) {
             light.ambient = glm::vec3(0.2f, 0.2f, 0.2f);
             light.diffuse = glm::vec3(0.8f, 0.8f, 0.9f);
             light.specular = glm::vec3(0.3f, 0.3f, 0.3f);
+        } else if (isInExitRoom) {
+            // Strong directional light in exit rooms - fully lit
+            light.ambient = glm::vec3(0.3f, 0.3f, 0.35f);
+            light.diffuse = glm::vec3(1.0f, 1.0f, 1.0f);
+            light.specular = glm::vec3(0.5f, 0.5f, 0.5f);
         }
         shaders.setLight("ulightD[" + std::to_string(i) + "]", light);
     }
@@ -603,6 +647,139 @@ void Scene::renderExitSigns(glm::mat4 P, glm::mat4 V) {
 
         // Draw the exit sign
         drawObjectTex(exitSignModel, texExitSign, P, V, M);
+    }
+}
+
+void Scene::renderExitRooms(glm::mat4 P, glm::mat4 V) {
+    if (m_exitRoomManager.getExitRooms().empty()) return;
+
+    Model& cubeModel = m_resources.getModel("cube");
+    Model& planeModel = m_resources.getModel("plane");
+    Textures& texExitLandscape = m_resources.getTextureGroup("exitLandscape");
+    Textures& texExitText = m_resources.getTextureGroup("exitText");
+
+    float halfBlock = BLOCK_SIZE / 2.0f;
+    float halfHeight = BLOCK_HEIGHT / 2.0f;
+
+    for (const auto& room : m_exitRoomManager.getExitRooms()) {
+        // Calculate room center in world coordinates
+        glm::vec3 roomCenter;
+        roomCenter.x = room.gridPos.x * BLOCK_SIZE;
+        roomCenter.y = halfHeight;
+        roomCenter.z = room.gridPos.y * BLOCK_SIZE;
+
+        // Determine which face to skip based on exit door direction
+        int doorDX = room.exitDoorPos.x - room.gridPos.x;
+        int doorDZ = room.exitDoorPos.y - room.gridPos.y;
+
+        // Render the 5 faces (all except the one facing the exit door)
+        // Each face is a scaled and positioned cube
+        
+        // Floor (always render)
+        {
+            glm::vec3 pos = roomCenter;
+            pos.y = 0.0f;
+            glm::mat4 M = glm::translate(I, pos);
+            M = glm::scale(M, glm::vec3(halfBlock, 0.05f, halfBlock));  // Thin floor
+            drawObjectTex(cubeModel, texExitLandscape, P, V, M);
+        }
+
+        // Ceiling (always render)
+        {
+            glm::vec3 pos = roomCenter;
+            pos.y = BLOCK_HEIGHT;
+            glm::mat4 M = glm::translate(I, pos);
+            M = glm::scale(M, glm::vec3(halfBlock, 0.05f, halfBlock));  // Thin ceiling
+            drawObjectTex(cubeModel, texExitLandscape, P, V, M);
+        }
+
+        // -X face (left wall) - only if exit door is not on this side
+        if (doorDX != -1) {
+            glm::vec3 pos = roomCenter;
+            pos.x -= halfBlock;
+            glm::mat4 M = glm::translate(I, pos);
+            M = glm::scale(M, glm::vec3(0.05f, halfHeight, halfBlock));  // Thin wall
+            drawObjectTex(cubeModel, texExitLandscape, P, V, M);
+        }
+
+        // +X face (right wall) - only if exit door is not on this side
+        if (doorDX != 1) {
+            glm::vec3 pos = roomCenter;
+            pos.x += halfBlock;
+            glm::mat4 M = glm::translate(I, pos);
+            M = glm::scale(M, glm::vec3(0.05f, halfHeight, halfBlock));  // Thin wall
+            drawObjectTex(cubeModel, texExitLandscape, P, V, M);
+        }
+
+        // -Z face (front wall) - only if exit door is not on this side
+        if (doorDZ != -1) {
+            glm::vec3 pos = roomCenter;
+            pos.z -= halfBlock;
+            glm::mat4 M = glm::translate(I, pos);
+            M = glm::scale(M, glm::vec3(halfBlock, halfHeight, 0.05f));  // Thin wall
+            drawObjectTex(cubeModel, texExitLandscape, P, V, M);
+        }
+
+        // +Z face (back wall) - only if exit door is not on this side
+        if (doorDZ != 1) {
+            glm::vec3 pos = roomCenter;
+            pos.z += halfBlock;
+            glm::mat4 M = glm::translate(I, pos);
+            M = glm::scale(M, glm::vec3(halfBlock, halfHeight, 0.05f));  // Thin wall
+            drawObjectTex(cubeModel, texExitLandscape, P, V, M);
+        }
+
+        // Render exit text plane on the opposite wall (facing the player when entering)
+        // Only render if player is inside this room
+        {
+            // Check if player is inside this specific room
+            glm::vec3 playerPos = m_camera.getPosition();
+            bool isPlayerInThisRoom = (std::abs(playerPos.x - roomCenter.x) < halfBlock &&
+                                       std::abs(playerPos.z - roomCenter.z) < halfBlock);
+            
+            if (isPlayerInThisRoom) {
+                glm::vec3 planePos = roomCenter;
+                planePos.y = halfHeight;  // Center vertically
+                float planeRotation = 0.0f;
+                float planeScale = BLOCK_SIZE * 0.2f;  // 50% of block size - smaller to show all text
+                
+                // Position and rotate plane based on door direction
+                if (doorDX == -1) {
+                    // Door on -X, plane on +X wall facing -X
+                    planePos.x += halfBlock - 0.3f;
+                    planeRotation = 90.0f;  // Face towards -X
+                } else if (doorDX == 1) {
+                    // Door on +X, plane on -X wall facing +X
+                    planePos.x -= halfBlock - 0.3f;
+                    planeRotation = -90.0f;  // Face towards +X
+                } else if (doorDZ == -1) {
+                    // Door on -Z, plane on +Z wall facing -Z
+                    planePos.z += halfBlock - 0.3f;
+                    planeRotation = 180.0f;  // Face towards -Z
+                } else if (doorDZ == 1) {
+                    // Door on +Z, plane on -Z wall facing +Z
+                    planePos.z -= halfBlock - 0.3f;
+                    planeRotation = 0.0f;  // Face towards +Z
+                }
+                
+                // Disable culling for the plane to render both sides
+                glDisable(GL_CULL_FACE);
+                
+                // Create transformation matrix for the plane
+                glm::mat4 M = glm::translate(I, planePos);
+                M = glm::rotate(M, glm::radians(planeRotation), glm::vec3(0.0f, 1.0f, 0.0f));
+                M = glm::rotate(M, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));  // Make vertical
+                M = glm::rotate(M, glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f));  // Rotate 180 in Z
+                M = glm::rotate(M, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));  // Rotate 90 in Y
+                M = glm::scale(M, glm::vec3(planeScale, planeScale, planeScale));
+                
+                // Draw the exit text plane
+                drawObjectTex(planeModel, texExitText, P, V, M);
+                
+                // Re-enable culling
+                glEnable(GL_CULL_FACE);
+            }
+        }
     }
 }
 

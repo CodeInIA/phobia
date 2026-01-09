@@ -7,6 +7,7 @@
 #include "Camera.h"
 #include "DoorManager.h"
 #include "ExitSignManager.h"
+#include "ExitRoomManager.h"
 #include "PendulumManager.h"
 #include "SpiderwebManager.h"
 #include "TorchManager.h"
@@ -54,6 +55,7 @@ private:
                         int gridX, int gridZ, float tileSize, float yPos, float scale, bool flip);
     void renderDoors(glm::mat4 P, glm::mat4 V);
     void renderExitSigns(glm::mat4 P, glm::mat4 V);
+    void renderExitRooms(glm::mat4 P, glm::mat4 V);
     void renderPendulums(glm::mat4 P, glm::mat4 V);
     void renderSpiderwebs(glm::mat4 P, glm::mat4 V);
     void renderTorches(glm::mat4 P, glm::mat4 V);
@@ -77,6 +79,9 @@ private:
 
     // Exit sign system
     ExitSignManager m_exitSignManager;
+
+    // Exit room system
+    ExitRoomManager m_exitRoomManager;
 
     // Pendulum system
     PendulumManager m_pendulumManager;
