@@ -1,7 +1,7 @@
 #include "Shaders.h"
 
 //--------------------------------------------------------------------------------------
-// Crea los shaders de vértices y fragmentos a partir del código fuente correspondiente
+// Creates the vertex and fragment shaders from the corresponding source code
 //--------------------------------------------------------------------------------------
 void Shaders::initShaders(const char *vShaderFile, const char *fShaderFile) {
 
@@ -12,14 +12,14 @@ void Shaders::initShaders(const char *vShaderFile, const char *fShaderFile) {
 }
 
 //--------------------------------------
-// Crea un shader (vértices/fragmentos)
+// Creates a single shader (vertex/fragment)
 //--------------------------------------
 unsigned int Shaders::createShader(unsigned long shader, const char* shaderFile) {
    
- // Se crea un objeto shader
+ // Create the shader object
     unsigned int shaderID = glCreateShader(shader);
     
- // Se asigna su código fuente contenido en un fichero glsl
+ // Load its source code from the GLSL file
     std::string   code = "";
     std::ifstream file(shaderFile, std::ios::in);
     if(file.is_open()) {
@@ -34,7 +34,7 @@ unsigned int Shaders::createShader(unsigned long shader, const char* shaderFile)
     const char *shaderSrc = code.c_str();
     glShaderSource(shaderID, 1, &shaderSrc, NULL);
     
- // Se compila con control de errores
+ // Compile with error checking
     int compiled;    
     glCompileShader(shaderID);
     glGetShaderiv(shaderID, GL_COMPILE_STATUS, &compiled);
@@ -52,20 +52,20 @@ unsigned int Shaders::createShader(unsigned long shader, const char* shaderFile)
 }
 
 //-------------------------------------------------------------------
-// Crea un programa(identificador) que usa los shaders especificados
+// Creates a program (identifier) that uses the specified shaders
 //-------------------------------------------------------------------
 unsigned int Shaders::createProgram(unsigned int vShader, unsigned int fShader) {
     
- // Se crea un objeto programa
+ // Create the program object
     unsigned int program = glCreateProgram();
     
- // Se adjuntan los shaders y se eliminan los objetos correspondientes
+ // Attach the shaders and delete the shader objects
     glAttachShader(program, vShader);
     glAttachShader(program, fShader);
     glDeleteShader(vShader);
     glDeleteShader(fShader);
     
- // Se enlaza el programa con control de errores
+ // Link the program with error checking
     int linked;    
     glLinkProgram(program);
     glGetProgramiv(program, GL_LINK_STATUS, &linked);
@@ -83,7 +83,7 @@ unsigned int Shaders::createProgram(unsigned int vShader, unsigned int fShader) 
 }
 
 //-----------------------------------------------------
-// Fija el valor de una variable uniforme de tipo vec3
+// Sets the value of a uniform variable of type vec3
 //-----------------------------------------------------
 void Shaders::setVec3(const std::string &name, glm::vec3 value) {
     
@@ -92,7 +92,7 @@ void Shaders::setVec3(const std::string &name, glm::vec3 value) {
 }
 
 //-----------------------------------------------------
-// Fija el valor de una variable uniforme de tipo mat4
+// Sets the value of a uniform variable of type mat4
 //-----------------------------------------------------
 void Shaders::setMat4(const std::string &name, glm::mat4 value) {
     
@@ -101,7 +101,7 @@ void Shaders::setMat4(const std::string &name, glm::mat4 value) {
 }
 
 //------------------------------------------------------
-// Fija el valor de una variable uniforme de tipo Light
+// Sets the value of a uniform variable of type Light
 //------------------------------------------------------
 void Shaders::setLight(const std::string &name, Light value) {
     
@@ -125,7 +125,7 @@ std::string toString(const int &i) {
 }
 
 //---------------------------------------------------------
-// Fija el valor de una variable uniforme de tipo Material
+// Sets the value of a uniform variable of type Material
 //---------------------------------------------------------
 void Shaders::setMaterial(const std::string &name, Material value) {
     
@@ -138,7 +138,7 @@ void Shaders::setMaterial(const std::string &name, Material value) {
 }
 
 //--------------------------------------------------------------------
-// Fija el valor de una variable uniforme (sampler2D) de tipo Texture
+// Sets the value of a uniform (sampler2D) variable of type Texture
 //--------------------------------------------------------------------
 void Shaders::setTextures(const std::string &name, Textures value) {
    
@@ -165,7 +165,7 @@ void Shaders::setTextures(const std::string &name, Textures value) {
 }
 
 //------------------------------------------------------
-// Fija el valor de una variable uniforme de tipo float
+// Sets the value of a uniform variable of type float
 //------------------------------------------------------
 void Shaders::setFloat(const std::string &name, float value) {
     
@@ -174,7 +174,7 @@ void Shaders::setFloat(const std::string &name, float value) {
 }
 
 //------------------------------------------------------
-// Fija el valor de una variable uniforme de tipo bool
+// Sets the value of a uniform variable of type bool
 //------------------------------------------------------
 void Shaders::setBool(const std::string &name, int value) {
     
@@ -183,7 +183,7 @@ void Shaders::setBool(const std::string &name, int value) {
 }
 
 //-----------------------------------------
-// Usa el shader para renderizar la escena
+// Uses the shader to render the scene
 //-----------------------------------------
 void Shaders::useShaders() {
     
@@ -192,7 +192,7 @@ void Shaders::useShaders() {
 }
 
 //-----------------------------------
-// Destructor de la clasede la clase 
+// Class destructor
 //-----------------------------------
 Shaders::~Shaders() {
 

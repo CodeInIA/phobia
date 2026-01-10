@@ -1,23 +1,23 @@
 #include "Texture.h"
 
 //------------------------
-// Crea la textura
+// Creates the texture
 //------------------------
 void Texture::initTexture(const char *textureFile) {
     
- // Creamos la textura a configurar
+ // Create the texture to configure
     glGenTextures(1,&texture);  
     glBindTexture(GL_TEXTURE_2D, texture);
     
- // Cargamos la imagen
+ // Load the image
     unsigned int  w, h;
     unsigned char *pixels = loadTexture(textureFile, w, h);  
     
- // Creamos la textura
+ // Create the texture
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, (void *)pixels);
     glGenerateMipmap(GL_TEXTURE_2D);
     
- // Configuramos la textura
+ // Set texture parameters
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -30,17 +30,15 @@ void Texture::initTexture(const char *textureFile) {
 }
 
 //--------------------------------------------------
-// Carga una textura mediante la librería Freeimage
+// Loads a texture using the FreeImage library
 //--------------------------------------------------
 unsigned char* Texture::loadTexture(const char *textureFile, unsigned int &w, unsigned int &h) {
     
-    FreeImage_Initialise(TRUE);
-
- // Leemos la textura
+ // Read the texture file
     FREE_IMAGE_FORMAT format = FreeImage_GetFileType(textureFile,0);
     if(format==FIF_UNKNOWN) format = FreeImage_GetFIFFromFilename(textureFile);
     if((format==FIF_UNKNOWN) || !FreeImage_FIFSupportsReading(format)) {
-        std::cout << "Formato de la textura " << textureFile << " no está soportado." << std::endl;
+        std::cout << "Texture format for file " << textureFile << " is not supported." << std::endl;
         std::cin.get();
         exit(1);
     }
@@ -54,7 +52,7 @@ unsigned char* Texture::loadTexture(const char *textureFile, unsigned int &w, un
     texture = FreeImage_ConvertTo32Bits(texture);
     FreeImage_Unload(temp);
 
- // De BGRA a RGBA
+ // Convert from BGRA to RGBA
     w = FreeImage_GetWidth(texture);
     h = FreeImage_GetHeight(texture);
     unsigned char *pixelsBGRA = (unsigned char *)FreeImage_GetBits(texture);
@@ -67,13 +65,12 @@ unsigned char* Texture::loadTexture(const char *textureFile, unsigned int &w, un
     }
 
     FreeImage_Unload(texture);
-    FreeImage_DeInitialise();
 
     return pixelsRGBA;
 }
 
 //-----------------------------------------
-// Devuelve el identificador de la textura
+// Returns the texture identifier
 //-----------------------------------------
 unsigned int Texture::getTexture() {
     
@@ -82,7 +79,7 @@ unsigned int Texture::getTexture() {
 }
 
 //-----------------------
-// Destructor dela clase
+// Class destructor
 //-----------------------
 Texture::~Texture() {
     

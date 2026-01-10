@@ -16,9 +16,13 @@ Game::~Game() {
 }
 
 bool Game::init(int width, int height, const std::string& title) {
+    // Initialize FreeImage library (once at startup)
+    FreeImage_Initialise(TRUE);
+
     // Initialize GLFW
     if (!glfwInit()) {
         std::cerr << "Failed to initialize GLFW" << std::endl;
+        FreeImage_DeInitialise();
         return false;
     }
 
@@ -117,5 +121,6 @@ void Game::shutdown() {
         m_window = nullptr;
     }
     glfwTerminate();
+    FreeImage_DeInitialise();
     m_initialized = false;
 }

@@ -45,23 +45,11 @@ void ResourceManager::loadModels() {
 }
 
 void ResourceManager::loadTextures() {
-    // Wall textures
+    // Wall/Floor/Ceiling textures (shared - load once, reuse handles in setupTextureGroups)
     m_textures["wallDiffuse"].initTexture("resources/textures/wall/wall_diffuse.png");
     m_textures["wallNormal"].initTexture("resources/textures/wall/wall_normal.jpg");
     m_textures["wallSpecular"].initTexture("resources/textures/wall/wall_specular.jpg");
     m_textures["wallEmissive"].initTexture("resources/textures/wall/wall_emissive.jpg");
-
-    // Floor textures (reusing wall textures as in original)
-    m_textures["floorDiffuse"].initTexture("resources/textures/wall/wall_diffuse.png");
-    m_textures["floorSpecular"].initTexture("resources/textures/wall/wall_specular.jpg");
-    m_textures["floorNormal"].initTexture("resources/textures/wall/wall_normal.jpg");
-    m_textures["floorEmissive"].initTexture("resources/textures/wall/wall_emissive.jpg");
-
-    // Ceiling textures (reusing wall textures as in original)
-    m_textures["ceilingDiffuse"].initTexture("resources/textures/wall/wall_diffuse.png");
-    m_textures["ceilingSpecular"].initTexture("resources/textures/wall/wall_specular.jpg");
-    m_textures["ceilingNormal"].initTexture("resources/textures/wall/wall_normal.jpg");
-    m_textures["ceilingEmissive"].initTexture("resources/textures/wall/wall_emissive.jpg");
 
     // Flashlight textures
     m_textures["flashlightDiffuse"].initTexture("resources/textures/flashlight/DefaultMaterial.png");
@@ -114,20 +102,20 @@ void ResourceManager::setupTextureGroups() {
     texWall.normal    = m_textures["wallNormal"].getTexture();
     texWall.shininess = 64.0f;
 
-    // Floor texture group
+    // Floor texture group (shares wall textures)
     Textures& texFloor = m_textureGroups["floor"];
-    texFloor.diffuse   = m_textures["floorDiffuse"].getTexture();
-    texFloor.specular  = m_textures["floorSpecular"].getTexture();
-    texFloor.emissive  = m_textures["floorEmissive"].getTexture();
-    texFloor.normal    = m_textures["floorNormal"].getTexture();
+    texFloor.diffuse   = m_textures["wallDiffuse"].getTexture();
+    texFloor.specular  = m_textures["wallSpecular"].getTexture();
+    texFloor.emissive  = m_textures["wallEmissive"].getTexture();
+    texFloor.normal    = m_textures["wallNormal"].getTexture();
     texFloor.shininess = 64.0f;
 
-    // Ceiling texture group
+    // Ceiling texture group (shares wall textures)
     Textures& texCeiling = m_textureGroups["ceiling"];
-    texCeiling.diffuse   = m_textures["ceilingDiffuse"].getTexture();
-    texCeiling.specular  = m_textures["ceilingSpecular"].getTexture();
-    texCeiling.emissive  = m_textures["ceilingEmissive"].getTexture();
-    texCeiling.normal    = m_textures["ceilingNormal"].getTexture();
+    texCeiling.diffuse   = m_textures["wallDiffuse"].getTexture();
+    texCeiling.specular  = m_textures["wallSpecular"].getTexture();
+    texCeiling.emissive  = m_textures["wallEmissive"].getTexture();
+    texCeiling.normal    = m_textures["wallNormal"].getTexture();
     texCeiling.shininess = 64.0f;
 
     // Flashlight texture group
