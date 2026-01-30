@@ -59,11 +59,17 @@ void PendulumManager::update(float deltaTime) {
     const float angularFrequency = 1.5f;  // Radians per second (adjust for speed)
     
     for (auto& pendulum : m_pendulums) {
-        // Update phase based on time
+        // Update phase based on time for swing
         pendulum.phase += angularFrequency * deltaTime;
         
         // Calculate swing angle using sine wave for constant speed oscillation
         pendulum.swingAngle = MAX_SWING_ANGLE * std::sin(pendulum.phase);
+        
+        // Update translation phase (slower frequency for different rhythm)
+        pendulum.translationPhase += TRANSLATION_FREQUENCY * deltaTime;
+        
+        // Calculate translation offset using sine wave (perpendicular to swing axis)
+        pendulum.translationOffset = MAX_TRANSLATION * std::sin(pendulum.translationPhase);
     }
 }
 
@@ -80,6 +86,13 @@ bool PendulumManager::checkCollision(glm::vec3 position, float playerRadius) con
         // Apply all transformations to get the blade position (matching rendering exactly)
         glm::mat4 transform = glm::mat4(1.0f);
         transform = glm::translate(transform, pivotPos);
+        
+        // Apply cyclic translation perpendicular to swing axis (along corridor direction)
+        // Translation is perpendicular to the rotation axis, so it moves along the corridor
+        float translationAngle = glm::radians(90.0f + pendulum.rotation);
+        glm::vec3 translationDir = glm::vec3(std::cos(translationAngle), 0.0f, -std::sin(translationAngle));
+        transform = glm::translate(transform, translationDir * pendulum.translationOffset);
+        
         transform = glm::rotate(transform, glm::radians(90.0f + pendulum.rotation), glm::vec3(0.0f, 1.0f, 0.0f));
         transform = glm::translate(transform, glm::vec3(0.0f, -modelTopY, 0.0f));
         

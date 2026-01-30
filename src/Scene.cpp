@@ -998,9 +998,15 @@ void Scene::renderPendulums(glm::mat4 P, glm::mat4 V) {
         // We need to position it so the holder is at the ceiling
         float modelTopY = 3.384f;  // Top of the holder in model space
         
+        // Calculate translation direction perpendicular to swing axis (along corridor)
+        float translationAngle = glm::radians(90.0f + pendulum.rotation);
+        glm::vec3 translationDir = glm::vec3(std::cos(translationAngle), 0.0f, -std::sin(translationAngle));
+        
         // Base transformation for the static holder (Mesh 0)
         // First rotate the entire model 90 degrees around Y axis
         glm::mat4 MHolder = glm::translate(I, pivotPos);
+        // Apply cyclic translation perpendicular to swing axis
+        MHolder = glm::translate(MHolder, translationDir * pendulum.translationOffset);
         MHolder = glm::rotate(MHolder, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
         MHolder = glm::translate(MHolder, glm::vec3(0.0f, -modelTopY, 0.0f));
 
@@ -1018,6 +1024,8 @@ void Scene::renderPendulums(glm::mat4 P, glm::mat4 V) {
         // Transformation for the swinging parts (Mesh 1 and 2)
         // Apply the same 90 degree rotation, then the swing
         glm::mat4 MSwing = glm::translate(I, pivotPos);
+        // Apply same cyclic translation for swinging parts
+        MSwing = glm::translate(MSwing, translationDir * pendulum.translationOffset);
         MSwing = glm::rotate(MSwing, glm::radians(90.0f + pendulum.rotation), glm::vec3(0.0f, 1.0f, 0.0f));
         MSwing = glm::translate(MSwing, glm::vec3(0.0f, -modelTopY, 0.0f));
         

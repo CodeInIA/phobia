@@ -10,8 +10,10 @@ struct Pendulum {
     glm::ivec2 gridPos;        // Grid position in map
     float swingAngle;          // Current swing angle in degrees
     float swingVelocity;       // Angular velocity
-    float phase;               // Phase offset for variation
+    float phase;               // Phase offset for swing oscillation
     float rotation;            // Y-axis rotation (0 or 90 degrees for perpendicular to corridor)
+    float translationPhase;    // Phase for cyclic linear translation
+    float translationOffset;   // Current translation offset perpendicular to swing axis
 
     Pendulum()
         : gridPos(0, 0)
@@ -19,6 +21,8 @@ struct Pendulum {
         , swingVelocity(0.0f)
         , phase(0.0f)
         , rotation(0.0f)
+        , translationPhase(0.0f)
+        , translationOffset(0.0f)
     {}
 };
 
@@ -57,6 +61,8 @@ private:
     static constexpr float GRAVITY = 9.81f;
     static constexpr float PENDULUM_LENGTH = 2.5f;   // Approximate length from pivot to blade center
     static constexpr float BLADE_RADIUS = 1.0f;      // Collision radius for blade
+    static constexpr float MAX_TRANSLATION = 0.8f;   // Maximum translation distance (forward/back)
+    static constexpr float TRANSLATION_FREQUENCY = 0.8f; // Translation oscillation frequency (slower than swing)
 };
 
 #endif // PENDULUM_MANAGER_H
