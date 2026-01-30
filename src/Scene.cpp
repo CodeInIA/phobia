@@ -719,11 +719,24 @@ void Scene::renderDoors(glm::mat4 P, glm::mat4 V) {
             M = createDoorPartTransform(doorPos, rot, scale.x, scale.y, scale.z, doorDoor.getCenter(), doorDoor.getSize().y, door.openAngle, true);
             drawObjectTex(doorDoor, texDoorFrame, P, V, M);
 
-            // Glass (moving, transparent)
+            // Glass (moving, transparent) - Double transparency: render back faces first, then front faces
             M = createDoorPartTransform(doorPos, rot, scale.x, scale.y, scale.z, doorGlass.getCenter(), doorGlass.getSize().y, door.openAngle, true);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
             glDepthMask(GL_FALSE);
+            glEnable(GL_CULL_FACE);
+            
+            // First pass: back faces
+            glCullFace(GL_FRONT);
             drawObjectTex(doorGlass, texDoorGlass, P, V, M, 0.35f);
+            
+            // Second pass: front faces
+            glCullFace(GL_BACK);
+            drawObjectTex(doorGlass, texDoorGlass, P, V, M, 0.35f);
+            
             glDepthMask(GL_TRUE);
+            glDisable(GL_BLEND);
+            glDisable(GL_CULL_FACE);
 
         } else { // FIRE_EXIT
             Model& doorFrame = m_resources.getModel("doorExitFrame");
