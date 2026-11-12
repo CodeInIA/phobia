@@ -1,278 +1,128 @@
-# Phobia - Laberinto de Terror en Primera Persona
+# Phobia
 
-**Proyecto Final - Informática Gráfica**  
-**Grado en Ingeniería Informática**
+A first-person horror maze written in C++ on modern OpenGL (3.3 Core Profile). You are lost in a dark labyrinth with nothing but a flashlight, and you have to find the fire exit while getting past swinging pendulum blades.
 
----
+Final project for the Computer Graphics course of the Computer Engineering degree at Universidad Rey Juan Carlos (2025/2026).
 
-![Portada del Juego](./screenshots/portada.jpg)
+![Phobia cover](./screenshots/portada.jpg)
 
----
+| Flashlight | Pendulum |
+| --- | --- |
+| ![The flashlight lighting a corridor](./screenshots/linterna.jpg) | ![A swinging pendulum blade](./screenshots/pendulo.jpg) |
 
-## Descripción
+| Closed door | Open door |
+| --- | --- |
+| ![A closed door with glass panels](./screenshots/puerta_cerrada.jpg) | ![The same door after opening it](./screenshots/puerta_abierta.jpg) |
 
-**Phobia** es un juego de terror en primera persona desarrollado en C++ utilizando OpenGL moderno (Core Profile 3.3). El jugador debe escapar de un laberinto oscuro plagado de peligros mientras se guía únicamente con una linterna.
+| Exit sign | Escape |
+| --- | --- |
+| ![Green emergency exit sign](./screenshots/senal_salida.jpg) | ![Reaching the exit room](./screenshots/victoria.jpg) |
 
----
+## Features
 
-## Requisitos del Sistema
+- **Programmable pipeline only**: OpenGL 3.3 Core with VAO/VBO/EBO and custom GLSL vertex and fragment shaders, no deprecated fixed-function calls.
+- **Phong lighting** (ambient + diffuse + specular) with several light types at once:
+  - a dim global ambient light for the horror mood
+  - a directional light
+  - up to 12 point lights: wall torches with a warm, flickering fire colour and a green light under the exit sign
+  - 2 spotlights attached to the camera that make up the flashlight, which can be switched off
+- **First-person camera** built from Euler angles (pitch/yaw). The flashlight is rendered as a viewmodel in camera space and sways while you walk.
+- **Articulated objects**:
+  - Pendulums built from primitives with a `base → arm → blade` transform hierarchy. They swing (`angle = sin(t) * maxAngle`), slide along the corridor at the same time and block the player when the blade hits.
+  - Doors that open with a 90° interpolated rotation when you are close enough (`CLOSED → OPENING → OPEN`). The glass panels use a two-pass render (back faces, then front faces) so both sides of the glass blend correctly.
+- **Collisions** against walls, doors, pendulums and the exit room.
+- **Audio with OpenAL**: footsteps, doors, crackling torches, background ambience and a crying baby doll behind one of the doors. Opening that door makes the lights flicker.
+- **Top view** (`U`) that lights the whole maze from above to help you find your way.
+- **Models and textures** loaded with Assimp and FreeImage.
 
-### Dependencias
+## Controls
 
-| Librería | Versión Mínima | Descripción |
-|----------|----------------|-------------|
-| **OpenGL** | 3.3 Core Profile | API gráfica |
-| **GLFW** | 3.3+ | Gestión de ventanas e input |
-| **GLEW** | 2.1+ | Extensiones de OpenGL |
-| **GLM** | 0.9.9+ | Matemáticas para gráficos |
+| Key | Action |
+| --- | --- |
+| `W` `A` `S` `D` | Move |
+| Mouse | Look around |
+| `E` | Open or close the nearest door |
+| `F` | Toggle the flashlight |
+| `U` | Toggle the top view |
+| `Esc` | Quit |
 
-### Herramientas de Compilación
+A player guide in Spanish (story, tips and how each graphics requirement is met) is in [MANUAL.md](MANUAL.md).
 
-- **CMake** 3.10 o superior
-- **Compilador C++17** compatible (MSVC, GCC, Clang)
+## The maze file
 
----
+The level is loaded from `binary/resources/models/map.cub`, a plain text grid where every character is one cell:
 
-## Estructura del Proyecto
+| Char | Cell |
+| --- | --- |
+| `1` | Wall |
+| `0` | Empty floor |
+| `N` | Player start |
+| `D` | Door |
+| `E` | Fire exit door (with exit sign) |
+| `L` | Exit room |
+| `P` | Pendulum |
+| `T` | Wall torch |
+| `B` | Baby doll (sound source) |
 
 ```
-phobia/
-├── CMakeLists.txt              # Configuración de CMake
-├── README.md                   # Este archivo
-├── MANUAL.md                   # Manual de usuario
-├── src/                        # Código fuente
-│   ├── main.cpp                # Punto de entrada
-│   ├── Game.cpp/h              # Bucle principal del juego
-│   ├── Scene.cpp/h             # Gestión de la escena y grafo
-│   ├── Camera.cpp/h            # Cámara en primera persona
-│   ├── Model.cpp/h             # Carga y renderizado de modelos
-│   ├── Shaders.cpp/h           # Compilación y gestión de shaders
-│   ├── Texture.cpp/h           # Carga de texturas
-│   ├── InputManager.cpp/h      # Gestión de entrada (teclado/ratón)
-│   ├── AudioManager.cpp/h      # Sistema de audio
-│   ├── ResourceManager.cpp/h   # Gestión centralizada de recursos
-│   ├── DoorManager.cpp/h       # Lógica de puertas interactivas
-│   ├── PendulumManager.cpp/h   # Animación de péndulos
-│   ├── TorchManager.cpp/h      # Gestión de la linterna
-│   ├── ExitRoomManager.cpp/h   # Lógica de la sala de salida
-│   ├── ExitSignManager.cpp/h   # Señales de emergencia
-│   └── SpiderwebManager.cpp/h  # Decoración ambiental
-├── libraries/                  # Librerías externas
-│   ├── glew/                   # OpenGL Extension Wrangler
-│   │   ├── include/
-│   │   └── lib/
-│   ├── glfw/                   # Framework de ventanas
-│   │   ├── include/
-│   │   └── lib/
-│   ├── glm/                    # OpenGL Mathematics
-│   │   └── include/
-│   ├── assimp/                 # Asset Import Library
-│   │   ├── include/
-│   │   └── lib/
-│   ├── freeimage/              # Librería de imágenes
-│   │   ├── include/
-│   │   └── lib/
-│   ├── openal-soft-1.25.0-bin/ # Audio 3D
-│   │   └── libs/
-│   └── dlls/                   # DLLs necesarias
-├── binary/                     # Ejecutable y recursos
-│   └── resources/
-│       ├── models/             # Modelos 3D y mapa
-│       │   ├── map.cub         # Definición del laberinto
-│       │   └── doors/          # Modelos de puertas
-│       ├── shaders/            # Shaders GLSL
-│       │   ├── vshader.glsl    # Vertex Shader
-│       │   └── fshader.glsl    # Fragment Shader
-│       ├── textures/           # Texturas del juego
-│       │   ├── wall/           # Texturas de paredes
-│       │   ├── doll/           # Texturas de objetos
-│       │   ├── flashlight/     # Texturas de linterna
-│       │   └── ...
-│       └── audios/             # Efectos de sonido
-└── build/                      # Directorio de compilación
+1111111111111111
+1T0000P00010T00EL
+1011111P10101111
+101T00101P100001
+1P10101010111101
+1010111010D0T101
+101B0D0000100101
+1T10111010100T01
+1N10001T00100001
+1111111111111111
 ```
 
----
+## Building
 
-## Compilación
-
-### Windows (Visual Studio / MSVC)
+Requirements: CMake 3.22+ and a C++14 compiler. The Windows headers, import libraries and DLLs for GLEW, GLFW, GLM, Assimp, FreeImage and OpenAL Soft are bundled in `libraries/`. The project was developed with MinGW (the bundled OpenAL import library is the 32-bit MinGW one).
 
 ```bash
-# Clonar o descargar el proyecto
-cd phobia
-
-# Crear directorio de build
-mkdir build
-cd build
-
-# Generar proyecto con CMake (Ninja)
-cmake -G "Ninja" ..
-
-# Compilar
-cmake --build . --config Release
-
-# El ejecutable se genera en binary/
-```
-
-### Windows (MinGW)
-
-```bash
-cmake -G "MinGW Makefiles" ..
-mingw32-make
-```
-
-### Linux
-
-```bash
-# Instalar dependencias (Ubuntu/Debian)
-sudo apt-get install libglfw3-dev libglew-dev libglm-dev
-
-# Compilar
 mkdir build && cd build
-cmake ..
-make -j$(nproc)
+cmake -G "MinGW Makefiles" ..   # or: cmake -G Ninja ..
+cmake --build .
 ```
 
----
+On Linux, install the libraries from your package manager first (Debian/Ubuntu shown):
 
-## Ejecución
+```bash
+sudo apt-get install libglew-dev libglfw3-dev libglm-dev libassimp-dev libfreeimage-dev libopenal-dev
+mkdir build && cd build
+cmake .. && make -j"$(nproc)"
+```
+
+The executable is written to `binary/`, next to the `resources/` folder. Run it from that directory so it can find its assets:
 
 ```bash
 cd binary
-./phobia.exe    # Windows
-./phobia        # Linux
+./phobia
 ```
 
-> **Importante:** El ejecutable debe ejecutarse desde el directorio `binary/` para que encuentre correctamente la carpeta `resources/`.
-
----
-
-## Implementación Técnica
-
-### Sistema de Renderizado
-
-- **OpenGL 3.3 Core Profile**: Pipeline programable moderno sin funciones deprecated.
-- **VAO/VBO/EBO**: Gestión eficiente de geometría en GPU.
-- **Shaders GLSL**: Vertex y Fragment shaders personalizados.
-
-### Modelo de Iluminación (Phong)
-
-El sistema implementa el modelo de iluminación **Phong** completo:
+## Project structure
 
 ```
-Color_final = Ambiente + Difusa + Especular
+src/
+├── main.cpp, Game.*          # Window, OpenGL context and main loop
+├── Scene.*                   # Map loading, lights, collisions and rendering
+├── Camera.*                  # First-person camera
+├── Shaders.*, Model.*, Texture.*, ResourceManager.*
+├── InputManager.*            # Keyboard and mouse
+├── AudioManager.*            # OpenAL sources and buffers
+└── DoorManager.*, PendulumManager.*, TorchManager.*,
+    ExitRoomManager.*, ExitSignManager.*, SpiderwebManager.*
+binary/resources/             # Map, models, GLSL shaders, textures and sounds
+libraries/                    # Bundled third-party libraries
 ```
 
-- **Componente Ambiental**: Luz base tenue (azul oscuro/gris) para atmósfera de terror.
-- **Componente Difusa**: Cálculo con producto escalar `dot(N, L)`.
-- **Componente Especular**: Reflejo especular con exponente de brillo.
+## Authors
 
-### Fuentes de Luz
+- Sergio Barrios Paz ([@CodeInIA](https://github.com/CodeInIA))
+- Jorge Sánchez Aguilar ([@josanchdev](https://github.com/josanchdev))
 
-| Tipo | Descripción | Implementación |
-|------|-------------|----------------|
-| **Ambiental Global** | Luz tenue de ambiente | Color azul/gris de baja intensidad |
-| **Spotlight (Linterna)** | Cono de luz adjunto a la cámara | Atenuación por distancia y ángulo de corte |
-| **Direccional (Luna)** | Luz suave desde arriba | Simula luz lunar filtrándose |
+## License
 
-### Cámara en Primera Persona
-
-- **Movimiento**: Vectores `front`, `right`, `up` calculados desde ángulos Euler (pitch/yaw).
-- **Head Bobbing**: Oscilación sinusoidal de la posición al caminar.
-- **Linterna como Viewmodel**: La linterna se renderiza en espacio de cámara (brazo derecho).
-
-### Objetos Articulados
-
-#### Péndulo de la Muerte
-- Generado proceduralmente con primitivas (cubos deformados).
-- Jerarquía de transformaciones: `Base → Brazo → Hoja`.
-- Animación automática: `angle = sin(time) * max_angle`.
-
-#### Puertas Interactivas
-- Detección de proximidad del jugador.
-- Rotación interpolada de 90° al interactuar.
-- Sistema de estados: `CLOSED → OPENING → OPEN`.
-
-### Grafo de Escena
-
-Estructura jerárquica simple para gestionar transformaciones:
-
-```
-Escena
-├── Laberinto (paredes, suelo, techo)
-├── Péndulos[]
-│   └── Base → Brazo → Hoja
-├── Puertas[]
-└── Decoración (telarañas, señales)
-```
-
-### Generación del Laberinto
-
-El mapa se carga desde `map.cub`, un archivo de texto donde cada carácter representa un elemento:
-
-| Carácter | Elemento |
-|----------|----------|
-| `1` | Pared |
-| `0` | Espacio vacío |
-| `N/S/E/W` | Posición inicial (orientación) |
-| `D` | Puerta |
-
----
-
-## Controles
-
-| Tecla | Acción |
-|-------|--------|
-| `W` | Avanzar |
-| `A` | Izquierda |
-| `S` | Retroceder |
-| `D` | Derecha |
-| `Ratón` | Girar cámara |
-| `E` | Interactuar (abrir puertas) |
-| `F` | Apagar/Encender linterna |
-| `U` | Abrir/Cerrar minimapa |
-| `ESC` | Salir del juego |
-
----
-
-## Archivos de Configuración
-
-### Shaders
-
-- **vshader.glsl**: Transformación de vértices, paso de normales y coordenadas UV.
-- **fshader.glsl**: Cálculo de iluminación Phong, muestreo de texturas, mezcla de luces.
-
-### Formato del Mapa (map.cub)
-
-```
-111111111
-100000001
-101110101
-100010001
-100000001
-111111111
-```
-
----
-
-## Créditos
-
-### Autores
-
-- **Jorge Sánchez Aguilar** - [@josanchdev](https://github.com/josanchdev)
-- **Sergio Barrios Paz** - [@CodeInIA](https://github.com/CodeInIA)
-
-### Recursos
-
-- **Desarrollo**: Proyecto académico para Informática Gráfica
-- **Librerías**: GLFW, GLEW, GLM (licencias respectivas)
-- **Texturas**: Recursos propios y libres de derechos
-
----
-
-## Licencia
-
-Proyecto académico - Universidad - Curso 2025/2026
-
----
+Academic project for the Computer Graphics course, 2025/2026. Third-party libraries keep their own licenses. Textures are our own or royalty-free.
